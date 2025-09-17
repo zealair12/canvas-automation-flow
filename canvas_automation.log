@@ -730,3 +730,18 @@ TypeError: User.__init__() missing 1 required positional argument: 'canvas_user_
 2025-09-17 13:54:39,016 - src.api.app - INFO - Skipping course 14928 - missing name
 2025-09-17 13:54:39,016 - src.api.app - INFO - Successfully processed 9 courses
 2025-09-17 13:54:39,017 - werkzeug - INFO - 10.27.9.227 - - [17/Sep/2025 13:54:39] "GET /api/user/courses HTTP/1.1" 200 -
+2025-09-17 13:54:42,922 - src.api.app - INFO - Starting get_user_courses
+2025-09-17 13:54:42,923 - src.api.app - INFO - Canvas client created successfully
+2025-09-17 13:54:43,161 - src.api.app - INFO - Retrieved 10 courses from Canvas
+2025-09-17 13:54:43,162 - src.api.app - INFO - Skipping course 14928 - missing name
+2025-09-17 13:54:43,162 - src.api.app - INFO - Successfully processed 9 courses
+2025-09-17 13:54:43,163 - werkzeug - INFO - 10.27.9.227 - - [17/Sep/2025 13:54:43] "GET /api/user/courses HTTP/1.1" 200 -
+2025-09-17 13:54:43,570 - werkzeug - INFO - 10.27.9.227 - - [17/Sep/2025 13:54:43] "GET /api/courses/14842/assignments HTTP/1.1" 200 -
+2025-09-17 13:55:11,990 - werkzeug - INFO - 10.27.9.227 - - [17/Sep/2025 13:55:11] "GET /api/user/profile HTTP/1.1" 200 -
+2025-09-17 13:55:12,005 - src.api.app - INFO - Starting get_user_courses
+2025-09-17 13:55:12,006 - src.api.app - INFO - Canvas client created successfully
+2025-09-17 13:55:12,246 - src.api.app - INFO - Retrieved 10 courses from Canvas
+2025-09-17 13:55:12,246 - src.api.app - INFO - Skipping course 14928 - missing name
+2025-09-17 13:55:12,246 - src.api.app - INFO - Successfully processed 9 courses
+2025-09-17 13:55:12,246 - werkzeug - INFO - 10.27.9.227 - - [17/Sep/2025 13:55:12] "GET /api/user/courses HTTP/1.1" 200 -
+2025-09-17 13:55:12,259 - werkzeug - INFO - 10.27.9.227 - - [17/Sep/2025 13:55:12] "[31m[1mGET /api/reminders HTTP/1.1[0m" 405 -
