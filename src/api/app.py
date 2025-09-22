@@ -12,10 +12,10 @@ from flask_cors import CORS
 import logging
 from functools import wraps
 
-from auth.auth_service import CanvasAuthService, TokenManager, User, UserRole
-from canvas.canvas_client import CanvasAPIClient, CanvasAPIError
-from models.data_models import Course, Assignment, Submission, Reminder, FeedbackDraft, AssignmentStatus, File
-from llm.llm_service import LLMService, create_llm_adapter, LLMProvider
+from src.auth.auth_service import CanvasAuthService, TokenManager, User, UserRole
+from src.canvas.canvas_client import CanvasAPIClient, CanvasAPIError
+from src.models.data_models import Course, Assignment, Submission, Reminder, FeedbackDraft, AssignmentStatus, File
+from src.llm.llm_service import LLMService, create_llm_adapter, LLMProvider
 
 
 # Initialize Flask app

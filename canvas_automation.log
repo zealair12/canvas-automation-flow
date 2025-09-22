@@ -910,3 +910,54 @@ TypeError: User.__init__() missing 1 required positional argument: 'canvas_user_
 2025-09-22 14:21:40,182 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
 2025-09-22 14:21:44,976 - llm.llm_service - ERROR - Error explaining concept: name 'x' is not defined
 2025-09-22 14:21:44,977 - werkzeug - INFO - 127.0.0.1 - - [22/Sep/2025 14:21:44] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:22:23,328 - llm.llm_service - ERROR - Error explaining concept: name 'x' is not defined
+2025-09-22 14:22:23,329 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:22:23] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:22:27,109 - llm.llm_service - ERROR - Error explaining concept: name 'x' is not defined
+2025-09-22 14:22:27,110 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:22:27] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:22:49,852 - llm.llm_service - ERROR - Error explaining concept: name 'x' is not defined
+2025-09-22 14:22:49,854 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:22:49] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:22:51,533 - llm.llm_service - ERROR - Error explaining concept: name 'x' is not defined
+2025-09-22 14:22:51,533 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:22:51] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:23:11,503 - src.api.app - INFO - Starting get_user_courses
+2025-09-22 14:23:11,506 - src.api.app - INFO - Canvas client created successfully
+2025-09-22 14:23:11,819 - src.api.app - INFO - Retrieved 10 courses from Canvas
+2025-09-22 14:23:11,819 - src.api.app - INFO - Skipping course 14928 - missing name
+2025-09-22 14:23:11,819 - src.api.app - INFO - Successfully processed 9 courses
+2025-09-22 14:23:11,821 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:23:11] "GET /api/user/courses HTTP/1.1" 200 -
+2025-09-22 14:23:12,203 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:23:12] "GET /api/courses/14842/assignments HTTP/1.1" 200 -
+2025-09-22 14:23:13,177 - src.api.app - INFO - Starting get_user_courses
+2025-09-22 14:23:13,177 - src.api.app - INFO - Canvas client created successfully
+2025-09-22 14:23:13,411 - src.api.app - INFO - Retrieved 10 courses from Canvas
+2025-09-22 14:23:13,412 - src.api.app - INFO - Skipping course 14928 - missing name
+2025-09-22 14:23:13,412 - src.api.app - INFO - Successfully processed 9 courses
+2025-09-22 14:23:13,413 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:23:13] "GET /api/user/courses HTTP/1.1" 200 -
+2025-09-22 14:23:23,922 - __main__ - INFO - ✅ All services initialized successfully
+2025-09-22 14:23:23,969 - __main__ - INFO - Starting API server on 0.0.0.0:5000
+2025-09-22 14:23:28,977 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.27.9.227:5000
+2025-09-22 14:23:28,977 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-09-22 14:23:32,285 - llm.llm_service - ERROR - Error explaining concept: name 'x' is not defined
+2025-09-22 14:23:32,285 - werkzeug - INFO - 127.0.0.1 - - [22/Sep/2025 14:23:32] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:24:25,535 - __main__ - INFO - ✅ All services initialized successfully
+2025-09-22 14:24:25,584 - __main__ - INFO - Starting API server on 0.0.0.0:5000
+2025-09-22 14:24:30,590 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.27.9.227:5000
+2025-09-22 14:24:30,590 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-09-22 14:24:33,292 - llm.llm_service - ERROR - Error explaining concept: name 'x' is not defined
+2025-09-22 14:24:33,292 - werkzeug - INFO - 127.0.0.1 - - [22/Sep/2025 14:24:33] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:24:38,457 - werkzeug - INFO - 127.0.0.1 - - [22/Sep/2025 14:24:38] "GET / HTTP/1.1" 200 -
+2025-09-22 14:25:04,007 - __main__ - INFO - ✅ All services initialized successfully
+2025-09-22 14:25:04,064 - __main__ - INFO - Starting API server on 0.0.0.0:5000
+2025-09-22 14:25:09,069 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.27.9.227:5000
+2025-09-22 14:25:09,069 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-09-22 14:25:12,424 - src.llm.llm_service - ERROR - Error explaining concept: name 'x' is not defined
+2025-09-22 14:25:12,424 - werkzeug - INFO - 127.0.0.1 - - [22/Sep/2025 14:25:12] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:25:20,811 - __main__ - INFO - ✅ All services initialized successfully
+2025-09-22 14:25:20,864 - __main__ - INFO - Starting API server on 0.0.0.0:5000

@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from enum import Enum
 import logging
 from openai import OpenAI
-from models.data_models import Assignment, Submission, FeedbackDraft
-from auth.auth_service import User
+from src.models.data_models import Assignment, Submission, FeedbackDraft
+from src.auth.auth_service import User
 
 
 class LLMProvider(Enum):
