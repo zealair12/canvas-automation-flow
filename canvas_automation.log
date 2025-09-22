@@ -1014,3 +1014,11 @@ TypeError: User.__init__() missing 1 required positional argument: 'canvas_user_
 2025-09-22 14:33:43,410 - werkzeug - INFO - 127.0.0.1 - - [22/Sep/2025 14:33:43] "POST /api/ai/explain-concept HTTP/1.1" 200 -
 2025-09-22 14:33:53,730 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
 2025-09-22 14:33:53,731 - werkzeug - INFO - 127.0.0.1 - - [22/Sep/2025 14:33:53] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:35:10,708 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-22 14:35:10,712 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:35:10] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:36:42,174 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-22 14:36:42,182 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:36:42] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:36:50,268 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-22 14:36:50,271 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:36:50] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:37:40,642 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-22 14:37:40,648 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:37:40] "POST /api/ai/explain-concept HTTP/1.1" 200 -
