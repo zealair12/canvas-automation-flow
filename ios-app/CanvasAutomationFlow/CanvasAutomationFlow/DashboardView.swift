@@ -439,15 +439,9 @@ struct FormattedText: View {
     }
     
     var body: some View {
-        // Convert *text* to **text** for SwiftUI Markdown support
-        let markdownText = text.replacingOccurrences(
-            of: #"\*([^*]+)\*"#,
-            with: "**$1**",
-            options: .regularExpression
-        )
-        
-        // Use SwiftUI's built-in Markdown support
-        if let attributedString = try? AttributedString(markdown: markdownText) {
+        // Use SwiftUI's native Markdown support directly
+        // The AI now returns proper Markdown formatting
+        if let attributedString = try? AttributedString(markdown: text) {
             Text(attributedString)
         } else {
             // Fallback to plain text if Markdown parsing fails

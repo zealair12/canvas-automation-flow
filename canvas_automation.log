@@ -875,3 +875,23 @@ TypeError: User.__init__() missing 1 required positional argument: 'canvas_user_
 2025-09-22 14:00:41,611 - src.api.app - INFO - Successfully processed 9 courses
 2025-09-22 14:00:41,612 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:00:41] "GET /api/user/courses HTTP/1.1" 200 -
 2025-09-22 14:00:42,010 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:00:42] "GET /api/courses/14842/assignments HTTP/1.1" 200 -
+2025-09-22 14:11:29,664 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:11:29] "GET /api/user/profile HTTP/1.1" 200 -
+2025-09-22 14:11:29,674 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:11:29] "GET /api/user/profile HTTP/1.1" 200 -
+2025-09-22 14:11:29,674 - src.api.app - INFO - Starting get_user_courses
+2025-09-22 14:11:29,675 - src.api.app - INFO - Canvas client created successfully
+2025-09-22 14:11:29,906 - src.api.app - INFO - Retrieved 10 courses from Canvas
+2025-09-22 14:11:29,906 - src.api.app - INFO - Skipping course 14928 - missing name
+2025-09-22 14:11:29,906 - src.api.app - INFO - Successfully processed 9 courses
+2025-09-22 14:11:29,908 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:11:29] "GET /api/user/courses HTTP/1.1" 200 -
+2025-09-22 14:11:29,918 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:11:29] "[31m[1mGET /api/reminders HTTP/1.1[0m" 405 -
+2025-09-22 14:11:40,889 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-22 14:11:40,894 - werkzeug - INFO - 10.27.9.227 - - [22/Sep/2025 14:11:40] "POST /api/ai/explain-concept HTTP/1.1" 200 -
+2025-09-22 14:14:17,114 - __main__ - INFO - ✅ All services initialized successfully
+2025-09-22 14:14:17,160 - __main__ - INFO - Starting API server on 0.0.0.0:5000
+2025-09-22 14:14:22,174 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.27.9.227:5000
+2025-09-22 14:14:22,174 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-09-22 14:14:27,041 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-22 14:14:27,050 - werkzeug - INFO - 127.0.0.1 - - [22/Sep/2025 14:14:27] "POST /api/ai/explain-concept HTTP/1.1" 200 -

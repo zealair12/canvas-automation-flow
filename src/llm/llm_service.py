@@ -82,9 +82,9 @@ class GroqAdapter(LLMAdapter):
 • Outcome: model obsolescence via user self-sufficiency.
 
 CRITICAL FORMATTING RULE:
-• Use ONLY single asterisks (*text*) for emphasis
-• NEVER use double asterisks (**text**) or markdown formatting
-• Use asterisk bullet points (*) for lists"""
+• Use standard Markdown formatting: **text** for bold, *text* for italic
+• Use proper Markdown lists: - for bullets, 1. for numbered lists
+• Follow standard Markdown conventions for headers: # ## ###"""
     
     def _make_request(self, messages: List[Dict[str, str]], 
                      temperature: float = 0.7, max_tokens: int = 1000) -> LLMResponse:
@@ -368,26 +368,26 @@ class LLMService:
 Assignment Analysis Request:
 
 FORMATTING REQUIREMENTS:
-- Use single asterisks (*text*) for emphasis, NOT double asterisks
-- Use bullet points with asterisks (*)
-- NO markdown formatting (**, ##, etc.)
+- Use proper Markdown formatting: **bold text**, *italic text*
+- Use Markdown bullet points: - for bullets
+- Use Markdown headers: ## for sections, ### for subsections
 
-*Assignment Details:*
-* Name: {assignment.name}
-* Description: {assignment.description or 'No description provided'}
-* Points Possible: {assignment.points_possible}
-* Due Date: {assignment.due_at or 'No due date'}
-* Submission Types: {', '.join(assignment.submission_types)}
+**Assignment Details:**
+- Name: {assignment.name}
+- Description: {assignment.description or 'No description provided'}
+- Points Possible: {assignment.points_possible}
+- Due Date: {assignment.due_at or 'No due date'}
+- Submission Types: {', '.join(assignment.submission_types)}
 
-*Student Question:* {question}
+**Student Question:** {question}
 
-Structure response with single *asterisk* emphasis:
-1. *Concept identification* - core concepts involved
-2. *Methodological approach* - analytical methods to use
-3. *Key considerations* - important factors to examine
-4. *Analytical framework* - systematic approach
+Structure response with proper Markdown formatting:
+1. **Concept identification** - core concepts involved
+2. **Methodological approach** - analytical methods to use
+3. **Key considerations** - important factors to examine
+4. **Analytical framework** - systematic approach
 
-Format all emphasis with single *asterisks* only.
+Use standard Markdown formatting throughout.
 """
             
             messages = [
@@ -435,21 +435,21 @@ Format all emphasis with single *asterisks* only.
 Study Plan Generation Request:
 
 FORMATTING REQUIREMENTS:
-- Use single asterisks (*text*) for emphasis, NOT double asterisks
-- Use bullet points with asterisks (*)
-- NO markdown formatting (**, ##, etc.)
+- Use proper Markdown formatting: **bold text**, *italic text*
+- Use Markdown bullet points: - for bullets
+- Use Markdown headers: ## for sections, ### for subsections
 
-*Upcoming Assignments ({days_ahead} days):*
+**Upcoming Assignments ({days_ahead} days):**
 {assignment_list}
 
-Structure study plan with single *asterisk* emphasis:
-1. *Daily breakdown* with time allocations
-2. *Priority matrix* based on due dates and point values  
-3. *Task-specific strategies* for different assignment types
-4. *Buffer periods* for unexpected challenges
-5. *Completion milestones* for progress tracking
+Structure study plan with proper Markdown formatting:
+1. **Daily breakdown** with time allocations
+2. **Priority matrix** based on due dates and point values  
+3. **Task-specific strategies** for different assignment types
+4. **Buffer periods** for unexpected challenges
+5. **Completion milestones** for progress tracking
 
-Format all emphasis with single *asterisks* only.
+Use standard Markdown formatting throughout.
 """
             
             messages = [
@@ -481,17 +481,17 @@ Format all emphasis with single *asterisks* only.
 Explain the concept of "{concept}" to {audience}.
 
 FORMATTING REQUIREMENTS:
-- Use single asterisks (*text*) for emphasis, NOT double asterisks
-- Use bullet points with asterisks (*)
-- NO markdown formatting (**, ##, etc.)
+- Use proper Markdown formatting: **bold text**, *italic text*
+- Use Markdown bullet points: - for bullets
+- Use Markdown headers: ## for sections, ### for subsections
 
 Structure your explanation:
-1. Clear definition with *key terms* emphasized
-2. Relevant examples with *important concepts* highlighted
+1. Clear definition with **key terms** emphasized
+2. Relevant examples with **important concepts** highlighted  
 3. Break complex parts into understandable pieces
 4. Connect to broader concepts when appropriate{context_text}
 
-Format all emphasis with single *asterisks* only.
+Use standard Markdown formatting throughout.
 """
             
             messages = [
@@ -522,25 +522,25 @@ Format all emphasis with single *asterisks* only.
 Feedback Generation Request:
 
 FORMATTING REQUIREMENTS:
-- Use single asterisks (*text*) for emphasis, NOT double asterisks
-- Use bullet points with asterisks (*)
-- NO markdown formatting (**, ##, etc.)
+- Use proper Markdown formatting: **bold text**, *italic text*
+- Use Markdown bullet points: - for bullets
+- Use Markdown headers: ## for sections, ### for subsections
 
-*Assignment:* {assignment.name}
-*Description:* {assignment.description or 'No description provided'}
-*Points Possible:* {assignment.points_possible}
+**Assignment:** {assignment.name}
+**Description:** {assignment.description or 'No description provided'}
+**Points Possible:** {assignment.points_possible}
 
-*Submission Content:*
+**Submission Content:**
 {submission.body or 'No content provided'}
 
-Generate {style} feedback with single *asterisk* emphasis:
-1. *Performance assessment* - specific observations
-2. *Strength identification* - what demonstrates competency
-3. *Improvement areas* - gaps requiring attention
-4. *Actionable directives* - specific next steps
-5. *Competency alignment* - academic level appropriateness
+Generate {style} feedback with proper Markdown formatting:
+1. **Performance assessment** - specific observations
+2. **Strength identification** - what demonstrates competency
+3. **Improvement areas** - gaps requiring attention
+4. **Actionable directives** - specific next steps
+5. **Competency alignment** - academic level appropriateness
 
-Format all emphasis with single *asterisks* only.
+Use standard Markdown formatting throughout.
 """
             
             messages = [
