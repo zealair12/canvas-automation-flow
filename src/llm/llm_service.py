@@ -84,7 +84,9 @@ class GroqAdapter(LLMAdapter):
 CRITICAL FORMATTING RULE:
 • Use standard Markdown formatting: **text** for bold, *text* for italic
 • Use proper Markdown lists: - for bullets, 1. for numbered lists
-• Follow standard Markdown conventions for headers: # ## ###"""
+• Follow standard Markdown conventions for headers: # ## ###
+• Use LaTeX for math: $\\sqrt{x}$ for inline, $$E=mc^2$$ for display equations
+• Use LaTeX symbols: $\\frac{a}{b}$, $x^2$, $\\int$, $\\sum$, $\\alpha$, etc."""
     
     def _make_request(self, messages: List[Dict[str, str]], 
                      temperature: float = 0.7, max_tokens: int = 1000) -> LLMResponse:
@@ -371,6 +373,8 @@ FORMATTING REQUIREMENTS:
 - Use proper Markdown formatting: **bold text**, *italic text*
 - Use Markdown bullet points: - for bullets
 - Use Markdown headers: ## for sections, ### for subsections
+- Use LaTeX for math: $\\sqrt{x}$ (inline), $$E=mc^2$$ (display)
+- Use LaTeX symbols: $\\frac{a}{b}$, $x^2$, $\\int$, $\\sum$, $\\pi$, $\\alpha$
 
 **Assignment Details:**
 - Name: {assignment.name}
@@ -381,13 +385,13 @@ FORMATTING REQUIREMENTS:
 
 **Student Question:** {question}
 
-Structure response with proper Markdown formatting:
+Structure response with proper Markdown + LaTeX formatting:
 1. **Concept identification** - core concepts involved
 2. **Methodological approach** - analytical methods to use
 3. **Key considerations** - important factors to examine
 4. **Analytical framework** - systematic approach
 
-Use standard Markdown formatting throughout.
+Use Markdown + LaTeX formatting throughout.
 """
             
             messages = [
@@ -484,6 +488,8 @@ FORMATTING REQUIREMENTS:
 - Use proper Markdown formatting: **bold text**, *italic text*
 - Use Markdown bullet points: - for bullets
 - Use Markdown headers: ## for sections, ### for subsections
+- Use LaTeX for math: $\\sqrt{x}$ (inline), $$E=mc^2$$ (display)
+- Use LaTeX symbols: $\\frac{a}{b}$, $x^2$, $\\int$, $\\sum$, $\\pi$, $\\alpha$
 
 Structure your explanation:
 1. Clear definition with **key terms** emphasized
@@ -491,7 +497,7 @@ Structure your explanation:
 3. Break complex parts into understandable pieces
 4. Connect to broader concepts when appropriate{context_text}
 
-Use standard Markdown formatting throughout.
+Use Markdown + LaTeX formatting throughout.
 """
             
             messages = [

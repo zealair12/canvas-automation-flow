@@ -390,11 +390,10 @@ struct ConceptExplainerSheet: View {
                         }
                         
                         ScrollView {
-                            FormattedText(response)
+                            MathFormattedText(response)
                                 .padding()
                                 .background(Color(.systemGray6))
                                 .cornerRadius(8)
-                                .textSelection(.enabled)
                         }
                     }
                 }

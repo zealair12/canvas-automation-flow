@@ -251,11 +251,10 @@ struct AIAssistantView: View {
                 .foregroundColor(.blue)
             }
             
-            FormattedText(aiResponse)
+            MathFormattedText(aiResponse)
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
-                .textSelection(.enabled)
         }
     }
     
