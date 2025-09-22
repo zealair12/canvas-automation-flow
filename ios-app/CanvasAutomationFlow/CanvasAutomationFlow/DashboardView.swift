@@ -430,6 +430,32 @@ struct ConceptExplainerSheet: View {
 }
 
 
+// MARK: - Shared FormattedText Component
+struct FormattedText: View {
+    let text: String
+    
+    init(_ text: String) {
+        self.text = text
+    }
+    
+    var body: some View {
+        // Convert *text* to **text** for SwiftUI Markdown support
+        let markdownText = text.replacingOccurrences(
+            of: #"\*([^*]+)\*"#,
+            with: "**$1**",
+            options: .regularExpression
+        )
+        
+        // Use SwiftUI's built-in Markdown support
+        if let attributedString = try? AttributedString(markdown: markdownText) {
+            Text(attributedString)
+        } else {
+            // Fallback to plain text if Markdown parsing fails
+            Text(text)
+        }
+    }
+}
+
 #Preview {
     DashboardView()
         .environmentObject(APIService())

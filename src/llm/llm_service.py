@@ -65,6 +65,26 @@ class GroqAdapter(LLMAdapter):
             base_url="https://api.groq.com/openai/v1"
         )
         self.logger = logging.getLogger(__name__)
+        
+        # Default system instruction for absolute mode
+        self.default_system_prompt = """Absolute Mode
+
+• Eliminate: emojis, filler, hype, soft asks, conversational transitions, call-to-action appendixes.
+• Assume: user retains high-perception despite blunt tone.
+• Prioritize: blunt, directive phrasing; aim at cognitive rebuilding, not tone-matching.
+• Disable: engagement/sentiment-boosting behaviors.
+• Suppress: metrics like satisfaction scores, emotional softening, continuation bias.
+• Never mirror: user's diction, mood, or affect.
+• Speak only: to underlying cognitive tier.
+• No: questions, offers, suggestions, transitions, motivational content.
+• Terminate reply: immediately after delivering info — no closures.
+• Goal: restore independent, high-fidelity thinking.
+• Outcome: model obsolescence via user self-sufficiency.
+
+CRITICAL FORMATTING RULE:
+• Use ONLY single asterisks (*text*) for emphasis
+• NEVER use double asterisks (**text**) or markdown formatting
+• Use asterisk bullet points (*) for lists"""
     
     def _make_request(self, messages: List[Dict[str, str]], 
                      temperature: float = 0.7, max_tokens: int = 1000) -> LLMResponse:
@@ -345,45 +365,41 @@ class LLMService:
         """Generate AI help for an assignment"""
         try:
             prompt = f"""
-You are an AI tutor helping a student with their assignment. 
+Assignment Analysis Request:
 
-Assignment Details:
-- Name: {assignment.name}
-- Description: {assignment.description or 'No description provided'}
-- Points Possible: {assignment.points_possible}
-- Due Date: {assignment.due_at or 'No due date'}
-- Submission Types: {', '.join(assignment.submission_types)}
+FORMATTING REQUIREMENTS:
+- Use single asterisks (*text*) for emphasis, NOT double asterisks
+- Use bullet points with asterisks (*)
+- NO markdown formatting (**, ##, etc.)
 
-Student Question: {question}
+*Assignment Details:*
+* Name: {assignment.name}
+* Description: {assignment.description or 'No description provided'}
+* Points Possible: {assignment.points_possible}
+* Due Date: {assignment.due_at or 'No due date'}
+* Submission Types: {', '.join(assignment.submission_types)}
 
-Please provide helpful, educational guidance that:
-1. Helps the student understand the concepts
-2. Provides direction without giving direct answers
-3. Encourages critical thinking
-4. Is appropriate for the assignment level
+*Student Question:* {question}
 
-Response:
+Structure response with single *asterisk* emphasis:
+1. *Concept identification* - core concepts involved
+2. *Methodological approach* - analytical methods to use
+3. *Key considerations* - important factors to examine
+4. *Analytical framework* - systematic approach
+
+Format all emphasis with single *asterisks* only.
 """
             
-            response = self.adapter.client.chat.completions.create(
-                model=self.adapter.model,
-                messages=[
-                    {"role": "system", "content": "You are a helpful AI tutor who guides students to learn rather than giving direct answers."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=800,
-                temperature=0.7
-            )
+            messages = [
+                {"role": "system", "content": self.adapter.default_system_prompt},
+                {"role": "user", "content": prompt}
+            ]
             
-            return LLMResponse(
-                content=response.choices[0].message.content.strip(),
-                model=self.adapter.model,
-                tokens_used=response.usage.total_tokens if hasattr(response, 'usage') else None
-            )
+            return self.adapter._make_request(messages, temperature=0.3, max_tokens=800)
         except Exception as e:
             self.logger.error(f"Error generating assignment help: {e}")
             return LLMResponse(
-                content="I apologize, but I'm unable to provide help at the moment. Please try again later.",
+                content="Unable to provide assignment analysis. Retry request.",
                 model=self.adapter.model
             )
     
@@ -416,39 +432,36 @@ Response:
                 assignment_list += f"- {assignment.name} (Due in {days_until} days, {assignment.points_possible} points)\n"
             
             prompt = f"""
-Create a personalized study plan for the next {days_ahead} days based on these upcoming assignments:
+Study Plan Generation Request:
 
+FORMATTING REQUIREMENTS:
+- Use single asterisks (*text*) for emphasis, NOT double asterisks
+- Use bullet points with asterisks (*)
+- NO markdown formatting (**, ##, etc.)
+
+*Upcoming Assignments ({days_ahead} days):*
 {assignment_list}
 
-Please provide:
-1. A day-by-day breakdown
-2. Time allocation suggestions
-3. Priority recommendations based on due dates and point values
-4. Study strategies for different types of assignments
-5. Buffer time for unexpected challenges
+Structure study plan with single *asterisk* emphasis:
+1. *Daily breakdown* with time allocations
+2. *Priority matrix* based on due dates and point values  
+3. *Task-specific strategies* for different assignment types
+4. *Buffer periods* for unexpected challenges
+5. *Completion milestones* for progress tracking
 
-Make the plan realistic and achievable for a student.
+Format all emphasis with single *asterisks* only.
 """
             
-            response = self.adapter.client.chat.completions.create(
-                model=self.adapter.model,
-                messages=[
-                    {"role": "system", "content": "You are an AI academic advisor creating personalized study plans for students."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=1000,
-                temperature=0.6
-            )
+            messages = [
+                {"role": "system", "content": self.adapter.default_system_prompt},
+                {"role": "user", "content": prompt}
+            ]
             
-            return LLMResponse(
-                content=response.choices[0].message.content.strip(),
-                model=self.adapter.model,
-                tokens_used=response.usage.total_tokens if hasattr(response, 'usage') else None
-            )
+            return self.adapter._make_request(messages, temperature=0.3, max_tokens=1000)
         except Exception as e:
             self.logger.error(f"Error creating study plan: {e}")
             return LLMResponse(
-                content="Unable to create study plan at the moment. Please try again later.",
+                content="Study plan generation failed. Retry request.",
                 model=self.adapter.model
             )
     
@@ -457,7 +470,7 @@ Make the plan realistic and achievable for a student.
         try:
             level_descriptions = {
                 "beginner": "a complete beginner with no prior knowledge",
-                "undergraduate": "an undergraduate student with basic academic background",
+                "undergraduate": "an undergraduate student with basic academic background", 
                 "graduate": "a graduate student with advanced academic background"
             }
             
@@ -467,35 +480,30 @@ Make the plan realistic and achievable for a student.
             prompt = f"""
 Explain the concept of "{concept}" to {audience}.
 
-Your explanation should:
-1. Start with a clear, simple definition
-2. Provide relevant examples
-3. Break down complex parts into understandable pieces
-4. Connect to broader concepts when appropriate
-5. Be educational and engaging{context_text}
+FORMATTING REQUIREMENTS:
+- Use single asterisks (*text*) for emphasis, NOT double asterisks
+- Use bullet points with asterisks (*)
+- NO markdown formatting (**, ##, etc.)
 
-Please provide a comprehensive but accessible explanation.
+Structure your explanation:
+1. Clear definition with *key terms* emphasized
+2. Relevant examples with *important concepts* highlighted
+3. Break complex parts into understandable pieces
+4. Connect to broader concepts when appropriate{context_text}
+
+Format all emphasis with single *asterisks* only.
 """
             
-            response = self.adapter.client.chat.completions.create(
-                model=self.adapter.model,
-                messages=[
-                    {"role": "system", "content": f"You are an expert educator explaining concepts to {audience}. Make your explanations clear, accurate, and engaging."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=800,
-                temperature=0.7
-            )
+            messages = [
+                {"role": "system", "content": self.adapter.default_system_prompt},
+                {"role": "user", "content": prompt}
+            ]
             
-            return LLMResponse(
-                content=response.choices[0].message.content.strip(),
-                model=self.adapter.model,
-                tokens_used=response.usage.total_tokens if hasattr(response, 'usage') else None
-            )
+            return self.adapter._make_request(messages, temperature=0.3, max_tokens=800)
         except Exception as e:
             self.logger.error(f"Error explaining concept: {e}")
             return LLMResponse(
-                content=f"Unable to explain '{concept}' at the moment. Please try again later.",
+                content=f"Unable to explain '{concept}'. Retry request.",
                 model=self.adapter.model
             )
     
@@ -511,44 +519,40 @@ Please provide a comprehensive but accessible explanation.
             style = feedback_styles.get(feedback_type, "constructive and balanced")
             
             prompt = f"""
-You are reviewing a student submission for the following assignment:
+Feedback Generation Request:
 
-Assignment: {assignment.name}
-Description: {assignment.description or 'No description provided'}
-Points Possible: {assignment.points_possible}
+FORMATTING REQUIREMENTS:
+- Use single asterisks (*text*) for emphasis, NOT double asterisks
+- Use bullet points with asterisks (*)
+- NO markdown formatting (**, ##, etc.)
 
-Submission Content:
+*Assignment:* {assignment.name}
+*Description:* {assignment.description or 'No description provided'}
+*Points Possible:* {assignment.points_possible}
+
+*Submission Content:*
 {submission.body or 'No content provided'}
 
-Please provide {style} feedback that:
-1. Acknowledges what the student did well
-2. Identifies areas for improvement
-3. Provides specific, actionable suggestions
-4. Maintains a supportive tone
-5. Is appropriate for the academic level
+Generate {style} feedback with single *asterisk* emphasis:
+1. *Performance assessment* - specific observations
+2. *Strength identification* - what demonstrates competency
+3. *Improvement areas* - gaps requiring attention
+4. *Actionable directives* - specific next steps
+5. *Competency alignment* - academic level appropriateness
 
-Your feedback should help the student learn and improve their work.
+Format all emphasis with single *asterisks* only.
 """
             
-            response = self.adapter.client.chat.completions.create(
-                model=self.adapter.model,
-                messages=[
-                    {"role": "system", "content": "You are an experienced educator providing thoughtful feedback on student work."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=600,
-                temperature=0.6
-            )
+            messages = [
+                {"role": "system", "content": self.adapter.default_system_prompt},
+                {"role": "user", "content": prompt}
+            ]
             
-            return LLMResponse(
-                content=response.choices[0].message.content.strip(),
-                model=self.adapter.model,
-                tokens_used=response.usage.total_tokens if hasattr(response, 'usage') else None
-            )
+            return self.adapter._make_request(messages, temperature=0.3, max_tokens=600)
         except Exception as e:
             self.logger.error(f"Error generating feedback draft: {e}")
             return LLMResponse(
-                content="Unable to generate feedback at the moment. Please try again later.",
+                content="Feedback generation failed. Retry request.",
                 model=self.adapter.model
             )
 
