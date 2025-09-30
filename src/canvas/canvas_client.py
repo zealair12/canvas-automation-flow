@@ -170,7 +170,10 @@ class CanvasAPIClient:
         if cached:
             return cached
         
-        params = {}
+        params = {
+            'include[]': ['term', 'enrollments', 'total_scores', 'current_grading_period_scores'],
+            'per_page': 100
+        }
         if enrollment_type:
             params['enrollment_type'] = enrollment_type
         if enrollment_role:
@@ -211,7 +214,7 @@ class CanvasAPIClient:
         return data
     
     def get_assignment(self, course_id: str, assignment_id: str) -> Dict[str, Any]:
-        """Get specific assignment details"""
+        """Get specific assignment details with quiz questions if applicable"""
         cache_key = f"assignment_{course_id}_{assignment_id}"
         cached = self._get_cached(cache_key)
         if cached:
@@ -219,6 +222,16 @@ class CanvasAPIClient:
         
         response = self._make_request('GET', f'courses/{course_id}/assignments/{assignment_id}')
         data = response.json()
+        
+        # If this is a quiz assignment, fetch quiz questions
+        if data.get('is_quiz_assignment') and data.get('quiz_id'):
+            try:
+                quiz_data = self.get_quiz_questions(course_id, data['quiz_id'])
+                data['quiz_questions'] = quiz_data
+            except Exception as e:
+                self.logger.warning(f"Could not fetch quiz questions: {e}")
+                data['quiz_questions'] = []
+        
         self._set_cache(cache_key, data)
         return data
     
@@ -250,6 +263,18 @@ class CanvasAPIClient:
         response = self._make_request('GET', 
                                    f'courses/{course_id}/assignments/{assignment_id}/submissions',
                                    params=params)
+        data = response.json()
+        self._set_cache(cache_key, data)
+        return data
+    
+    def get_quiz_questions(self, course_id: str, quiz_id: str) -> List[Dict[str, Any]]:
+        """Get questions for a quiz"""
+        cache_key = f"quiz_questions_{course_id}_{quiz_id}"
+        cached = self._get_cached(cache_key)
+        if cached:
+            return cached
+        
+        response = self._make_request('GET', f'courses/{course_id}/quizzes/{quiz_id}/questions')
         data = response.json()
         self._set_cache(cache_key, data)
         return data

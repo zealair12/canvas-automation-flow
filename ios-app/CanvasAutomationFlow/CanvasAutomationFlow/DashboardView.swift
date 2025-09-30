@@ -187,6 +187,7 @@ struct DashboardView: View {
     private func loadUserData() async {
         await apiService.fetchUserProfile()
         await apiService.fetchCourses()
+        await apiService.fetchAllAssignments()
         await apiService.fetchReminders()
     }
 }

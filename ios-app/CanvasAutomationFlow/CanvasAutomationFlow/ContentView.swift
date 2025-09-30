@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var apiService = APIService()
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var selectedTab = 0
     
     var body: some View {
@@ -45,13 +46,21 @@ struct ContentView: View {
                 }
                 .tag(3)
             
+            // File Upload Tab
+            FileUploadView()
+                .tabItem {
+                    Image(systemName: "arrow.up.doc.fill")
+                    Text("Upload")
+                }
+                .tag(4)
+            
             // AI Assistant Tab
             AIAssistantView()
                 .tabItem {
                     Image(systemName: "sparkles")
                     Text("AI Assistant")
                 }
-                .tag(4)
+                .tag(5)
             
             // Reminders Tab
             RemindersView()
@@ -59,7 +68,7 @@ struct ContentView: View {
                     Image(systemName: "bell.fill")
                     Text("Reminders")
                 }
-                .tag(5)
+                .tag(6)
             
             // Settings Tab
             SettingsView()
@@ -67,9 +76,11 @@ struct ContentView: View {
                     Image(systemName: "gear")
                     Text("Settings")
                 }
-                .tag(6)
+                .tag(7)
         }
         .environmentObject(apiService)
+        .background(themeManager.backgroundColor)
+        .accentColor(themeManager.accentColor)
     }
 }
 

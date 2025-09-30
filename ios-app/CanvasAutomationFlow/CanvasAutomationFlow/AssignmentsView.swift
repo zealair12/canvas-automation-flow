@@ -80,18 +80,20 @@ struct AssignmentsView: View {
     
     private var assignmentsList: some View {
         List(filteredAssignments) { assignment in
-            AssignmentDetailRowView(assignment: assignment)
-                .swipeActions(edge: .trailing) {
-                    Button("🤖 AI Help") {
-                        showAIHelp(for: assignment)
-                    }
-                    .tint(.purple)
-                    
-                    Button("Remind") {
-                        createReminder(for: assignment)
-                    }
-                    .tint(.blue)
+            NavigationLink(destination: AssignmentDetailView(assignment: assignment)) {
+                AssignmentDetailRowView(assignment: assignment)
+            }
+            .swipeActions(edge: .trailing) {
+                Button("AI Help") {
+                    showAIHelp(for: assignment)
                 }
+                .tint(.purple)
+                
+                Button("Remind") {
+                    createReminder(for: assignment)
+                }
+                .tint(.blue)
+            }
         }
     }
     
@@ -152,12 +154,8 @@ struct AssignmentsView: View {
     }
     
     private func loadAssignments() async {
-        // For now, load assignments from all courses
-        // In a real app, I'll build to select a specific course
-        await apiService.fetchCourses()
-        if let firstCourse = apiService.courses.first {
-            await apiService.fetchAssignments(for: firstCourse.canvasCourseId)
-        }
+        // Load assignments from all courses
+        await apiService.fetchAllAssignments()
     }
 }
 
@@ -185,7 +183,7 @@ struct AssignmentDetailRowView: View {
             }
             
             if let description = assignment.description, !description.isEmpty {
-                Text(description)
+                Text(stripHTML(description))
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
@@ -223,6 +221,19 @@ struct AssignmentDetailRowView: View {
         displayFormatter.dateStyle = .medium
         displayFormatter.timeStyle = .short
         return displayFormatter.string(from: date)
+    }
+    
+    private func stripHTML(_ html: String) -> String {
+        // Remove HTML tags and decode entities
+        var result = html
+        result = result.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        result = result.replacingOccurrences(of: "&nbsp;", with: " ")
+        result = result.replacingOccurrences(of: "&lt;", with: "<")
+        result = result.replacingOccurrences(of: "&gt;", with: ">")
+        result = result.replacingOccurrences(of: "&amp;", with: "&")
+        result = result.replacingOccurrences(of: "&quot;", with: "\"")
+        result = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        return result
     }
 }
 
@@ -356,7 +367,7 @@ struct AIHelpSheet: View {
                 Spacer()
             }
             .padding()
-            .navigationTitle("🤖 AI Assignment Help")
+            .navigationTitle("AI Assignment Help")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -376,6 +387,7 @@ struct AIHelpSheet: View {
         
         let help = await apiService.getAssignmentHelp(
             assignmentId: assignment.canvasAssignmentId,
+            courseId: assignment.courseId,
             question: question
         )
         

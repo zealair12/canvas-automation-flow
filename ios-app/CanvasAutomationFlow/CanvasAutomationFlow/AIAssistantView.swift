@@ -13,6 +13,8 @@ struct AIAssistantView: View {
     @State private var showingCoursePicker = false
     @State private var selectedLevel = "undergraduate"
     @State private var selectedFeedbackType = "constructive"
+    @State private var uploadedFiles: [File] = []
+    @State private var showingFilePicker = false
     
     enum AIFeature: String, CaseIterable {
         case assignmentHelp = "Assignment Help"
@@ -124,10 +126,59 @@ struct AIAssistantView: View {
             Text("Your Question:")
                 .font(.subheadline)
                 .fontWeight(.medium)
-            
+
             TextField("What do you need help with?", text: $inputText, axis: .vertical)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .lineLimit(3...6)
+
+            // File Upload for Context
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Context Files (Optional)")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                Button(action: {
+                    showingFilePicker = true
+                }) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.blue)
+                        Text("Add Context Files")
+                            .foregroundColor(.blue)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                }
+
+                // Display uploaded files
+                if !uploadedFiles.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack {
+                            ForEach(uploadedFiles) { file in
+                                VStack {
+                                    Image(systemName: "doc.fill")
+                                        .foregroundColor(.blue)
+                                        .font(.largeTitle)
+                                    Text(file.displayName)
+                                        .font(.caption)
+                                        .multilineTextAlignment(.center)
+                                        .frame(width: 60)
+                                    Button(action: {
+                                        uploadedFiles.removeAll { $0.id == file.id }
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                    }
+                                }
+                                .frame(width: 80)
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -279,9 +330,11 @@ struct AIAssistantView: View {
         
         switch selectedFeature {
         case .assignmentHelp:
-            response = await apiService.getAssignmentHelp(
+            response = await apiService.getAssignmentHelpWithFiles(
                 assignmentId: selectedAssignment?.canvasAssignmentId ?? "",
-                question: inputText
+                courseId: selectedAssignment?.courseId ?? "",
+                question: inputText,
+                files: uploadedFiles
             )
         case .studyPlan:
             let courseIds = selectedCourses.map { $0.canvasCourseId }

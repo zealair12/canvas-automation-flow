@@ -11,14 +11,17 @@ from dataclasses import dataclass
 from enum import Enum
 import logging
 from openai import OpenAI
+import requests
 from src.models.data_models import Assignment, Submission, FeedbackDraft
 from src.auth.auth_service import User
+from src.formatting.formatting_service import formatting_service, FormattingOptions
 
 
 class LLMProvider(Enum):
     GROQ = "groq"
     OPENAI = "openai"
     OLLAMA = "ollama"
+    PERPLEXITY = "perplexity"
 
 
 @dataclass
@@ -28,6 +31,7 @@ class LLMResponse:
     model: str
     tokens_used: Optional[int] = None
     confidence_score: Optional[float] = None
+    sources: Optional[List[Dict[str, Any]]] = None
     metadata: Dict[str, Any] = None
     
     def __post_init__(self):
@@ -47,6 +51,12 @@ class LLMAdapter:
         raise NotImplementedError
     
     def generate_assignment_summary(self, assignment: Assignment) -> LLMResponse:
+        raise NotImplementedError
+    
+    def search_facts(self, query: str, max_results: int = 10) -> LLMResponse:
+        raise NotImplementedError
+    
+    def calculate_math(self, expression: str) -> LLMResponse:
         raise NotImplementedError
     
     def analyze_submission_quality(self, submission: Submission, 
@@ -274,8 +284,9 @@ Provide a quality analysis with specific observations and suggestions."""
 class LLMService:
     """Service layer for LLM operations"""
     
-    def __init__(self, adapter: LLMAdapter):
+    def __init__(self, adapter: LLMAdapter, perplexity_adapter: Optional[LLMAdapter] = None):
         self.adapter = adapter
+        self.perplexity_adapter = perplexity_adapter
         self.logger = logging.getLogger(__name__)
     
     def create_feedback_draft(self, submission: Submission, assignment: Assignment,
@@ -363,18 +374,61 @@ class LLMService:
         
         return min(score, 1.0)
     
-    def generate_assignment_help(self, assignment: Assignment, question: str) -> LLMResponse:
-        """Generate AI help for an assignment"""
+    def generate_assignment_help(self, assignment: Assignment, question: str, context_files: List[Any] = None) -> LLMResponse:
+        """Generate AI help for an assignment using Perplexity for research"""
         try:
-            prompt = f"""
-Assignment Analysis Request:
+            # Build context from uploaded files
+            context_info = ""
+            if context_files:
+                context_info = "\n\n**Context from uploaded files:**\n"
+                for file in context_files:
+                    context_info += f"- {file.get('display_name', 'Unknown file')}: {file.get('description', 'No description')}\n"
+            
+            # Use Perplexity for assignment help to get real research and sources
+            if self.perplexity_adapter:
+                # Create a research query for Perplexity
+                research_query = f"""
+Help with assignment: {assignment.name}
 
-FORMATTING REQUIREMENTS:
-- Use proper Markdown formatting: **bold text**, *italic text*
-- Use Markdown bullet points: - for bullets
-- Use Markdown headers: ## for sections, ### for subsections
-- Use LaTeX for math: $\\\\sqrt{{x}}$ (inline), $$E=mc^2$$ (display)
-- Use LaTeX symbols: $\\\\frac{{a}}{{b}}$, $x^2$, $\\\\int$, $\\\\sum$, $\\\\pi$, $\\\\alpha$
+Assignment details:
+- Description: {assignment.description or 'No description provided'}
+- Points: {assignment.points_possible}
+- Due: {assignment.due_at or 'No due date'}
+- Submission Types: {', '.join(assignment.submission_types)}
+
+Student question: {question}
+{context_info}
+
+Please provide detailed help including:
+1. Key concepts and background information
+2. Research sources and references
+3. Analytical approaches
+4. Step-by-step guidance
+5. How to use the provided context files effectively
+"""
+                response = self.perplexity_adapter.search_facts(research_query)
+                
+                # Format the response with tables and structured content
+                formatted_content = formatting_service.format_ai_response(
+                    response.content,
+                    sources=getattr(response, 'sources', []),
+                    options=FormattingOptions(
+                        include_tables=True,
+                        include_math=True,
+                        include_sources=True,
+                        table_style="markdown"
+                    )
+                )
+                
+                return LLMResponse(
+                    content=formatted_content,
+                    model=response.model,
+                    sources=getattr(response, 'sources', [])
+                )
+            else:
+                # Fallback to GROQ
+                prompt = f"""
+Assignment Analysis Request:
 
 **Assignment Details:**
 - Name: {assignment.name}
@@ -382,29 +436,45 @@ FORMATTING REQUIREMENTS:
 - Points Possible: {assignment.points_possible}
 - Due Date: {assignment.due_at or 'No due date'}
 - Submission Types: {', '.join(assignment.submission_types)}
+{context_info}
 
 **Student Question:** {question}
 
-Structure response with proper Markdown + LaTeX formatting:
-1. **Concept identification** - core concepts involved
-2. **Methodological approach** - analytical methods to use
-3. **Key considerations** - important factors to examine
-4. **Analytical framework** - systematic approach
-
-Use Markdown + LaTeX formatting throughout.
+Provide structured help:
+1. **Key Concepts** - core concepts involved
+2. **Approach** - analytical methods to use
+3. **Considerations** - important factors
+4. **Framework** - systematic approach
+5. **Context Integration** - how to use uploaded files
 """
-            
-            messages = [
-                {"role": "system", "content": self.adapter.default_system_prompt},
-                {"role": "user", "content": prompt}
-            ]
-            
-            return self.adapter._make_request(messages, temperature=0.3, max_tokens=800)
+
+                messages = [
+                    {"role": "system", "content": self.adapter.default_system_prompt},
+                    {"role": "user", "content": prompt}
+                ]
+
+                response = self.adapter._make_request(messages, temperature=0.7, max_tokens=1500)
+                
+                # Format the response
+                formatted_content = formatting_service.format_ai_response(
+                    response.content,
+                    options=FormattingOptions(
+                        include_tables=True,
+                        include_math=True,
+                        include_sources=False,
+                        table_style="markdown"
+                    )
+                )
+                
+                return LLMResponse(
+                    content=formatted_content,
+                    model=response.model
+                )
         except Exception as e:
             self.logger.error(f"Error generating assignment help: {e}")
             return LLMResponse(
                 content="Unable to provide assignment analysis. Retry request.",
-                model=self.adapter.model
+                model=self.adapter.model if self.adapter else "unknown"
             )
     
     def create_study_plan(self, assignments: List[Assignment], days_ahead: int = 7) -> LLMResponse:
@@ -412,17 +482,38 @@ Use Markdown + LaTeX formatting throughout.
         try:
             # Filter assignments with due dates
             upcoming_assignments = []
+            self.logger.info(f"Processing {len(assignments)} assignments for study plan")
+            
             for assignment in assignments:
+                self.logger.info(f"Assignment: {assignment.name}, due_at: {assignment.due_at}")
+                
                 if assignment.due_at:
                     try:
-                        due_date = datetime.fromisoformat(assignment.due_at.replace('Z', '+00:00'))
-                        days_until_due = (due_date - datetime.now()).days
-                        if 0 <= days_until_due <= days_ahead:
+                        # Handle Canvas date format: "2025-10-03T04:59:59+00:00"
+                        due_date_str = assignment.due_at
+                        if due_date_str.endswith('Z'):
+                            due_date_str = due_date_str.replace('Z', '+00:00')
+                        
+                        due_date = datetime.fromisoformat(due_date_str)
+                        now = datetime.now(due_date.tzinfo) if due_date.tzinfo else datetime.now()
+                        days_until_due = (due_date - now).days
+                        
+                        self.logger.info(f"Assignment '{assignment.name}': due_date={due_date}, now={now}, days_until_due={days_until_due}")
+                        
+                        # Include assignments due in the next days_ahead days AND overdue assignments (within reason)
+                        if days_until_due <= days_ahead or (days_until_due >= -30 and days_until_due < 0):
                             upcoming_assignments.append((assignment, days_until_due))
-                    except:
+                            self.logger.info(f"Added assignment '{assignment.name}' - due in {days_until_due} days")
+                        else:
+                            self.logger.info(f"Skipped assignment '{assignment.name}' - due in {days_until_due} days (beyond range)")
+                    except Exception as e:
+                        self.logger.error(f"Error parsing due date '{assignment.due_at}': {e}")
                         continue
+                else:
+                    self.logger.info(f"Assignment '{assignment.name}' has no due date")
             
             if not upcoming_assignments:
+                self.logger.info(f"No assignments found with due dates in the next {days_ahead} days. Total assignments checked: {len(assignments)}")
                 return LLMResponse(
                     content=f"No assignments found with due dates in the next {days_ahead} days.",
                     model=self.adapter.model
@@ -433,7 +524,8 @@ Use Markdown + LaTeX formatting throughout.
             
             assignment_list = ""
             for assignment, days_until in upcoming_assignments:
-                assignment_list += f"- {assignment.name} (Due in {days_until} days, {assignment.points_possible} points)\n"
+                status = "OVERDUE" if days_until < 0 else f"Due in {days_until} days"
+                assignment_list += f"- {assignment.name} ({status}, {assignment.points_possible} points)\n"
             
             prompt = f"""
 Study Plan Generation Request:
@@ -461,7 +553,23 @@ Use standard Markdown formatting throughout.
                 {"role": "user", "content": prompt}
             ]
             
-            return self.adapter._make_request(messages, temperature=0.3, max_tokens=1000)
+            response = self.adapter._make_request(messages, temperature=0.3, max_tokens=1000)
+            
+            # Format the response with tables and structured content
+            formatted_content = formatting_service.format_ai_response(
+                response.content,
+                options=FormattingOptions(
+                    include_tables=True,
+                    include_math=True,
+                    include_sources=False,
+                    table_style="markdown"
+                )
+            )
+            
+            return LLMResponse(
+                content=formatted_content,
+                model=response.model
+            )
         except Exception as e:
             self.logger.error(f"Error creating study plan: {e}")
             return LLMResponse(
@@ -470,7 +578,29 @@ Use standard Markdown formatting throughout.
             )
     
     def explain_concept(self, concept: str, context: str = "", level: str = "undergraduate") -> LLMResponse:
-        """Explain academic concepts with AI"""
+        """Explain academic concepts - use Perplexity for factual content"""
+        if self.perplexity_adapter:
+            response = self.perplexity_adapter.explain_concept(concept, context, level)
+            
+            # Format the response
+            formatted_content = formatting_service.format_ai_response(
+                response.content,
+                sources=getattr(response, 'sources', []),
+                options=FormattingOptions(
+                    include_tables=True,
+                    include_math=True,
+                    include_sources=True,
+                    table_style="markdown"
+                )
+            )
+            
+            return LLMResponse(
+                content=formatted_content,
+                model=response.model,
+                sources=getattr(response, 'sources', [])
+            )
+        
+        # Fallback to GROQ for basic explanations
         try:
             level_descriptions = {
                 "beginner": "a complete beginner with no prior knowledge",
@@ -488,8 +618,8 @@ FORMATTING REQUIREMENTS:
 - Use proper Markdown formatting: **bold text**, *italic text*
 - Use Markdown bullet points: - for bullets
 - Use Markdown headers: ## for sections, ### for subsections
-- Use LaTeX for math: $\\\\sqrt{{x}}$ (inline), $$E=mc^2$$ (display)
-- Use LaTeX symbols: $\\\\frac{{a}}{{b}}$, $x^2$, $\\\\int$, $\\\\sum$, $\\\\pi$, $\\\\alpha$
+- Use LaTeX for math: $\\sqrt{{x}}$ (inline), $$E=mc^2$$ (display)
+- Use LaTeX symbols: $\\frac{{a}}{{b}}$, $x^2$, $\\int$, $\\sum$, $\\pi$, $\\alpha$
 
 Structure your explanation:
 1. Clear definition with **key terms** emphasized
@@ -508,10 +638,22 @@ Use Markdown + LaTeX formatting throughout.
             return self.adapter._make_request(messages, temperature=0.3, max_tokens=800)
         except Exception as e:
             self.logger.error(f"Error explaining concept: {e}")
-            return LLMResponse(
-                content=f"Unable to explain '{concept}'. Retry request.",
-                model=self.adapter.model
-            )
+            # Try alternative approaches before giving up
+            return self._try_alternative_explanation(concept, context, level, str(e))
+    
+    def search_facts(self, query: str, max_results: int = 10) -> LLMResponse:
+        """Search for factual information using Perplexity"""
+        if self.perplexity_adapter:
+            return self.perplexity_adapter.search_facts(query, max_results)
+        return LLMResponse(
+            content="Perplexity adapter not available for factual search",
+            model="fallback",
+            metadata={"error": "perplexity_not_available"}
+        )
+    
+    def calculate_math(self, expression: str) -> LLMResponse:
+        """Calculate mathematical expressions - use GROQ for calculations"""
+        return self.adapter.calculate_math(expression)
     
     def generate_feedback_draft(self, assignment: Assignment, submission: Submission, feedback_type: str = "constructive") -> LLMResponse:
         """Generate AI feedback draft for submissions"""
@@ -561,9 +703,207 @@ Use standard Markdown formatting throughout.
                 content="Feedback generation failed. Retry request.",
                 model=self.adapter.model
             )
+    
+    def _generate_fallback_concept_explanation(self, concept: str) -> str:
+        """Generate a basic fallback explanation when AI is unavailable"""
+        concept_lower = concept.lower()
+        
+        # Basic concept explanations for common topics
+        explanations = {
+            "water": """## Water: A Fundamental Concept
+
+### Definition
+Water is a transparent, odorless, and tasteless liquid composed of two hydrogen atoms and one oxygen atom (H₂O).
+
+### Key Properties
+- **States of Matter**: Liquid, solid (ice), and gas (vapor)
+- **Density**: Unique property where ice floats on liquid water
+- **Solvent**: Known as the "universal solvent" for its ability to dissolve many substances
+- **Specific Heat**: High heat capacity helps regulate temperature
+
+### Biological Importance
+Water is essential for all known forms of life, constituting about 60% of the human body and facilitating cellular functions.
+
+### Environmental Significance
+Water shapes Earth's landscapes and plays a central role in the water cycle through evaporation, condensation, and precipitation.
+
+*Note: This is a basic explanation. For more detailed information, please check your network connection and try again.*""",
+            
+            "photosynthesis": """## Photosynthesis: The Process of Energy Conversion
+
+### Definition
+Photosynthesis is the process by which green plants, algae, and some bacteria convert light energy from the sun into chemical energy in the form of glucose.
+
+### The Overall Equation
+$$6 CO_2 + 6 H_2O + \\text{light energy} \\rightarrow C_6H_{12}O_6 + 6 O_2$$
+
+### Key Components
+- **Light-dependent reactions**: Capture solar energy
+- **Light-independent reactions**: Use energy to produce glucose
+- **Chlorophyll**: Green pigment that absorbs light
+
+### Importance
+Photosynthesis is the foundation of most food chains and produces the oxygen we breathe.
+
+*Note: This is a basic explanation. For more detailed information, please check your network connection and try again.*""",
+            
+            "math": """## Mathematics: The Language of Patterns
+
+### Definition
+Mathematics is the study of numbers, quantities, shapes, and patterns using logical reasoning and systematic approaches.
+
+### Key Areas
+- **Arithmetic**: Basic operations (addition, subtraction, multiplication, division)
+- **Algebra**: Working with variables and equations
+- **Geometry**: Study of shapes, sizes, and spatial relationships
+- **Calculus**: Rates of change and accumulation
+
+### Applications
+Mathematics is used in science, engineering, economics, and everyday problem-solving.
+
+*Note: This is a basic explanation. For more detailed information, please check your network connection and try again.*"""
+        }
+        
+        # Check for exact matches first
+        if concept_lower in explanations:
+            return explanations[concept_lower]
+        
+        # Check for partial matches
+        for key, explanation in explanations.items():
+            if key in concept_lower or concept_lower in key:
+                return explanation
+        
+        # Default fallback
+        return f"""## {concept}: Concept Overview
+
+### Definition
+{concept} is an important concept that requires detailed explanation and understanding.
+
+### Key Points
+- This concept involves multiple aspects and applications
+- Understanding the fundamentals is essential for deeper learning
+- Practice and application help reinforce understanding
+
+### Next Steps
+- Review related materials and examples
+- Practice with exercises and problems
+- Seek additional resources for comprehensive understanding
+
+*Note: This is a basic overview. For detailed explanations, please check your network connection and try the AI feature again.*"""
 
 
 # Factory function
+
+
+class PerplexityAdapter(LLMAdapter):
+    """Perplexity API adapter for factual research"""
+    
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.perplexity.ai/chat/completions"
+        self.model = "sonar"
+    
+    def search_facts(self, query: str, max_results: int = 10) -> LLMResponse:
+        """Search for factual information using Perplexity"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            data = {
+                "model": self.model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a helpful research assistant. Provide accurate, factual information based on current internet sources. Include citations and sources when possible."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Research and provide detailed information about: {query}"
+                    }
+                ],
+                "max_tokens": 2000,
+                "temperature": 0.1
+            }
+            
+            response = requests.post(self.base_url, headers=headers, json=data)
+            response.raise_for_status()
+            
+            result = response.json()
+            content = result['choices'][0]['message']['content']
+            
+            # Extract sources/citations if available
+            sources = result.get('citations', [])
+            if not sources:
+                # Try alternate location
+                sources = result.get('sources', [])
+            
+            return LLMResponse(
+                content=content,
+                model=self.model,
+                sources=sources if sources else None,
+                metadata={"source": "perplexity", "query": query}
+            )
+            
+        except Exception as e:
+            logging.error(f"Perplexity API error: {e}")
+            return LLMResponse(
+                content=f"Error retrieving information: {str(e)}",
+                model=self.model,
+                sources=None,
+                metadata={"error": str(e)}
+            )
+    
+    def generate_feedback(self, submission: Submission, assignment: Assignment, 
+                         rubric: Optional[Dict[str, Any]] = None) -> LLMResponse:
+        """Generate feedback using Perplexity for factual content"""
+        query = f"Provide constructive feedback for a student submission on {assignment.name}. Focus on accuracy, clarity, and improvement suggestions."
+        return self.search_facts(query)
+    
+    def generate_reminder_message(self, assignment: Assignment, user: User, 
+                                 hours_until_due: int) -> LLMResponse:
+        """Generate reminder message"""
+        query = f"Create a helpful reminder message for a student about an assignment '{assignment.name}' due in {hours_until_due} hours."
+        return self.search_facts(query)
+    
+    def generate_assignment_summary(self, assignment: Assignment) -> LLMResponse:
+        """Generate assignment summary"""
+        query = f"Summarize the key requirements and learning objectives for an assignment: {assignment.name}"
+        return self.search_facts(query)
+    
+    def calculate_math(self, expression: str) -> LLMResponse:
+        """Calculate mathematical expressions"""
+        query = f"Calculate and explain: {expression}"
+        return self.search_facts(query)
+    
+    def analyze_submission_quality(self, submission: Submission, 
+                                  assignment: Assignment) -> LLMResponse:
+        """Analyze submission quality"""
+        query = f"Analyze the quality of a student submission for assignment '{assignment.name}' and provide improvement suggestions."
+        return self.search_facts(query)
+    
+    def explain_concept(self, concept: str, context: str = "", level: str = "undergraduate") -> LLMResponse:
+        """Explain academic concepts with current information"""
+        query = f"Explain the concept '{concept}' at {level} level. Context: {context}"
+        return self.search_facts(query)
+    
+    def create_study_plan(self, assignments: List[Assignment], days_ahead: int = 7) -> LLMResponse:
+        """Create study plan based on assignments"""
+        assignment_names = [a.name for a in assignments]
+        query = f"Create a study plan for these assignments over {days_ahead} days: {', '.join(assignment_names)}"
+        return self.search_facts(query)
+    
+    def generate_assignment_help(self, assignment: Assignment, question: str = "") -> LLMResponse:
+        """Generate help for assignments"""
+        query = f"Provide help and guidance for assignment '{assignment.name}'. Student question: {question}"
+        return self.search_facts(query)
+    
+    def generate_feedback_draft(self, assignment: Assignment, submission: Submission, 
+                               feedback_type: str = "constructive") -> LLMResponse:
+        """Generate feedback draft"""
+        query = f"Generate {feedback_type} feedback for a student submission on assignment '{assignment.name}'"
+        return self.search_facts(query)
 
 
 # Factory function
@@ -574,6 +914,10 @@ def create_llm_adapter(provider: LLMProvider, **kwargs) -> LLMAdapter:
         return GroqAdapter(
             api_key=kwargs.get('api_key', os.getenv('GROQ_API_KEY')),
             model=kwargs.get('model', 'llama-3.1-8b-instant')
+        )
+    elif provider == LLMProvider.PERPLEXITY:
+        return PerplexityAdapter(
+            api_key=kwargs.get('api_key', os.getenv('PERPLEXITY_API_KEY'))
         )
     elif provider == LLMProvider.OPENAI:
         # TODO: Implement OpenAI adapter

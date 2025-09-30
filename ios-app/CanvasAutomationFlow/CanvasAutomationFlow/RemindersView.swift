@@ -183,7 +183,7 @@ struct CreateReminderView: View {
                     Button("Create Reminder") {
                         if let assignment = selectedAssignment {
                             Task {
-                                await apiService.createReminder(assignmentId: assignment.canvasAssignmentId, courseId: assignment.courseId, hoursBeforeDue: hoursBeforeDue)
+                                let _ = await apiService.createReminder(assignmentId: assignment.canvasAssignmentId, courseId: assignment.courseId, hoursBeforeDue: hoursBeforeDue)
                                 dismiss()
                             }
                         }

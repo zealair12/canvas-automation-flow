@@ -3,12 +3,13 @@ import Combine
 
 @MainActor
 class APIService: ObservableObject {
-    private let baseURL = "http://10.27.9.227:5000"
+    private let baseURL = "http://localhost:8000"
     private var authToken: String?
     
     @Published var isAuthenticated = false
     @Published var user: User?
     @Published var courses: [Course] = []
+    @Published var coursesByTerm: [String: [Course]] = [:]
     @Published var assignments: [Assignment] = []
     @Published var files: [File] = []
     @Published var folders: [Folder] = []
@@ -50,6 +51,7 @@ class APIService: ObservableObject {
         self.isAuthenticated = false
         self.user = nil
         self.courses = []
+        self.coursesByTerm = [:]
         self.assignments = []
         self.files = []
         self.folders = []
@@ -111,8 +113,11 @@ class APIService: ObservableObject {
             let (data, _) = try await URLSession.shared.data(for: request)
             let response = try JSONDecoder().decode(CoursesResponse.self, from: data)
             self.courses = response.courses
+            self.coursesByTerm = response.coursesByTerm ?? [:]
+            print("✅ Successfully loaded \(response.courses.count) courses")
+            print("✅ Courses by term: \(response.coursesByTerm?.keys.sorted() ?? [])")
         } catch {
-            print("Error fetching courses: \(error)")
+            print("❌ Error fetching courses: \(error)")
         }
     }
     
@@ -129,10 +134,28 @@ class APIService: ObservableObject {
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
             let response = try JSONDecoder().decode(AssignmentsResponse.self, from: data)
-            self.assignments = response.assignments
+            self.assignments.append(contentsOf: response.assignments)
+            print("✅ Loaded \(response.assignments.count) assignments from course \(courseId)")
         } catch {
-            print("Error fetching assignments: \(error)")
+            print("❌ Error fetching assignments for course \(courseId): \(error)")
         }
+    }
+    
+    func fetchAllAssignments() async {
+        guard !courses.isEmpty else { 
+            await fetchCourses()
+            return
+        }
+        
+        // Clear existing assignments
+        self.assignments = []
+        
+        // Load assignments from all accessible courses
+        for course in courses {
+            await fetchAssignments(for: course.canvasCourseId)
+        }
+        
+        print("✅ Total assignments loaded: \(assignments.count)")
     }
     
     func fetchAssignmentDetails(courseId: String, assignmentId: String) async -> Assignment? {
@@ -149,6 +172,99 @@ class APIService: ObservableObject {
             return response.assignment
         } catch {
             print("Error fetching assignment details: \(error)")
+            return nil
+        }
+    }
+    
+    // MARK: - File Upload
+    
+    func uploadFile(data: Data, fileName: String, courseId: String? = nil, folderPath: String? = nil) async -> File? {
+        guard let token = authToken else { return nil }
+        
+        let url = URL(string: "\(baseURL)/api/files/upload")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        var body = Data()
+        
+        // Add course_id if provided
+        if let courseId = courseId {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"course_id\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(courseId)\r\n".data(using: .utf8)!)
+        }
+        
+        // Add folder path if provided
+        if let folderPath = folderPath {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"parent_folder_path\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(folderPath)\r\n".data(using: .utf8)!)
+        }
+        
+        // Add file data
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: application/octet-stream\r\n\r\n".data(using: .utf8)!)
+        body.append(data)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        request.httpBody = body
+        
+        do {
+            let (responseData, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(FileUploadResponse.self, from: responseData)
+            
+            if response.success {
+                print("✅ File uploaded successfully: \(fileName)")
+                return response.file
+            } else {
+                print("❌ File upload failed")
+                return nil
+            }
+        } catch {
+            print("❌ Error uploading file: \(error)")
+            return nil
+        }
+    }
+    
+    func uploadFileFromURL(fileURL: String, fileName: String, fileSize: Int, courseId: String, folderPath: String? = nil) async -> File? {
+        guard let token = authToken else { return nil }
+        
+        let url = URL(string: "\(baseURL)/api/files/upload-url")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        var requestBody: [String: Any] = [
+            "file_url": fileURL,
+            "file_name": fileName,
+            "file_size": fileSize,
+            "course_id": courseId
+        ]
+        
+        if let folderPath = folderPath {
+            requestBody["parent_folder_path"] = folderPath
+        }
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            let (responseData, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(FileUploadResponse.self, from: responseData)
+            
+            if response.success {
+                print("✅ File uploaded from URL successfully: \(fileName)")
+                return response.file
+            } else {
+                print("❌ File upload from URL failed")
+                return nil
+            }
+        } catch {
+            print("❌ Error uploading file from URL: \(error)")
             return nil
         }
     }
@@ -232,7 +348,7 @@ class APIService: ObservableObject {
     
     // MARK: - AI-Powered Features
     
-    func getAssignmentHelp(assignmentId: String, question: String) async -> String? {
+    func getAssignmentHelp(assignmentId: String, courseId: String, question: String) async -> String? {
         guard let token = authToken else { return nil }
         
         guard let url = URL(string: "\(baseURL)/api/ai/assignment-help") else { return nil }
@@ -244,6 +360,7 @@ class APIService: ObservableObject {
         
         let requestBody = [
             "assignment_id": assignmentId,
+            "course_id": courseId,
             "question": question
         ]
         
@@ -258,7 +375,68 @@ class APIService: ObservableObject {
         } catch {
             print("Error getting assignment help: \(error)")
         }
-        
+
+        return nil
+    }
+
+    func getAssignmentHelpWithFiles(assignmentId: String, courseId: String, question: String, files: [File]) async -> String? {
+        guard let token = authToken else { return nil }
+
+        guard let url = URL(string: "\(baseURL)/api/ai/assignment-help") else { return nil }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        // Create multipart form data for file uploads
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+
+        // Add JSON data
+        let jsonData = [
+            "assignment_id": assignmentId,
+            "course_id": courseId,
+            "question": question
+        ]
+
+        if let jsonString = try? JSONSerialization.data(withJSONObject: jsonData) {
+            body.append(Data("--\(boundary)\r\n".utf8))
+            body.append(Data("Content-Disposition: form-data; name=\"data\"\r\n".utf8))
+            body.append(Data("Content-Type: application/json\r\n\r\n".utf8))
+            body.append(jsonString)
+            body.append(Data("\r\n".utf8))
+        }
+
+        // Add files
+        for file in files {
+            if !file.url.isEmpty, let fileUrl = URL(string: file.url),
+               let fileData = try? Data(contentsOf: fileUrl) {
+
+                body.append(Data("--\(boundary)\r\n".utf8))
+                body.append(Data("Content-Disposition: form-data; name=\"files\"; filename=\"\(file.filename)\"\r\n".utf8))
+                body.append(Data("Content-Type: \(file.contentType)\r\n\r\n".utf8))
+                body.append(fileData)
+                body.append(Data("\r\n".utf8))
+            }
+        }
+
+        body.append(Data("--\(boundary)--\r\n".utf8))
+
+        request.httpBody = body
+
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let help = json["help"] as? String {
+                return help
+            }
+        } catch {
+            print("Error getting assignment help with files: \(error)")
+        }
+
         return nil
     }
     
@@ -290,6 +468,104 @@ class APIService: ObservableObject {
         }
         
         return nil
+    }
+    
+    // MARK: - Assignment Submission
+    
+    func submitAssignmentText(courseId: String, assignmentId: String, textContent: String, comment: String = "") async -> Bool {
+        guard let token = authToken else { return false }
+        
+        guard let url = URL(string: "\(baseURL)/api/assignments/submit-text") else { return false }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let requestBody = [
+            "course_id": courseId,
+            "assignment_id": assignmentId,
+            "text_content": textContent,
+            "comment": comment
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            let (data, _) = try await URLSession.shared.data(for: request)
+            
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let success = json["success"] as? Bool {
+                return success
+            }
+        } catch {
+            print("Error submitting text assignment: \(error)")
+        }
+        
+        return false
+    }
+    
+    func submitAssignmentFiles(courseId: String, assignmentId: String, fileIds: [String], comment: String = "") async -> Bool {
+        guard let token = authToken else { return false }
+        
+        guard let url = URL(string: "\(baseURL)/api/assignments/submit-files") else { return false }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let requestBody = [
+            "course_id": courseId,
+            "assignment_id": assignmentId,
+            "file_ids": fileIds,
+            "comment": comment
+        ] as [String: Any]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            let (data, _) = try await URLSession.shared.data(for: request)
+            
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let success = json["success"] as? Bool {
+                return success
+            }
+        } catch {
+            print("Error submitting file assignment: \(error)")
+        }
+        
+        return false
+    }
+    
+    func submitAssignmentURL(courseId: String, assignmentId: String, urlSubmission: String, comment: String = "") async -> Bool {
+        guard let token = authToken else { return false }
+        
+        guard let url = URL(string: "\(baseURL)/api/assignments/submit-url") else { return false }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let requestBody = [
+            "course_id": courseId,
+            "assignment_id": assignmentId,
+            "url": urlSubmission,
+            "comment": comment
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            let (data, _) = try await URLSession.shared.data(for: request)
+            
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let success = json["success"] as? Bool {
+                return success
+            }
+        } catch {
+            print("Error submitting URL assignment: \(error)")
+        }
+        
+        return false
     }
     
     func explainConcept(concept: String, context: String = "", level: String = "undergraduate") async -> String? {
@@ -359,7 +635,7 @@ class APIService: ObservableObject {
     func fetchReminders() async {
         guard let token = authToken else { return }
         
-        guard let url = URL(string: "\(baseURL)/api/reminders") else { return }
+        guard let url = URL(string: "\(baseURL)/api/reminders/upcoming") else { return }
         
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -429,12 +705,19 @@ struct Course: Codable, Identifiable, Hashable {
     let courseCode: String
     let description: String?
     let workflowState: String
+    let accessRestrictedByDate: Bool?
+    let term: String?
+    let startAt: String?
+    let endAt: String?
     
     enum CodingKeys: String, CodingKey {
-        case id, name, description
+        case id, name, description, term
         case canvasCourseId = "canvas_course_id"
         case courseCode = "course_code"
         case workflowState = "workflow_state"
+        case accessRestrictedByDate = "access_restricted_by_date"
+        case startAt = "start_at"
+        case endAt = "end_at"
     }
 }
 
@@ -592,6 +875,15 @@ struct Reminder: Codable, Identifiable, Hashable {
 
 struct CoursesResponse: Codable {
     let courses: [Course]
+    let coursesByTerm: [String: [Course]]?
+    let totalCourses: Int?
+    let terms: [String]?
+    
+    enum CodingKeys: String, CodingKey {
+        case courses, terms
+        case coursesByTerm = "courses_by_term"
+        case totalCourses = "total_courses"
+    }
 }
 
 struct AssignmentsResponse: Codable {
@@ -616,4 +908,9 @@ struct FoldersResponse: Codable {
 
 struct RemindersResponse: Codable {
     let reminders: [Reminder]
+}
+
+struct FileUploadResponse: Codable {
+    let success: Bool
+    let file: File?
 }

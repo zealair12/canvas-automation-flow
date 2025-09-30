@@ -129,14 +129,34 @@ class CanvasAutomationApp:
             # Sync service
             self.sync_service = CanvasSyncService(self.auth_service, self.database)
             
-            # LLM service
+            # LLM service with dual API support
             groq_api_key = os.getenv('GROQ_API_KEY')
-            if groq_api_key:
+            perplexity_api_key = os.getenv('PERPLEXITY_API_KEY')
+            
+            if groq_api_key or perplexity_api_key:
+                # Create GROQ adapter for calculations
+                groq_adapter = None
+                if groq_api_key:
+                    groq_adapter = create_llm_adapter(LLMProvider.GROQ, api_key=groq_api_key)
+                
+                # Create Perplexity adapter for factual research
+                perplexity_adapter = None
+                if perplexity_api_key:
+                    perplexity_adapter = create_llm_adapter(LLMProvider.PERPLEXITY, api_key=perplexity_api_key)
+                
                 self.llm_service = LLMService(
-                    create_llm_adapter(LLMProvider.GROQ, api_key=groq_api_key)
+                    adapter=groq_adapter or perplexity_adapter,
+                    perplexity_adapter=perplexity_adapter
                 )
+                
+                if groq_api_key and perplexity_api_key:
+                    self.logger.info("✅ Dual LLM setup: GROQ for calculations, Perplexity for facts")
+                elif groq_api_key:
+                    self.logger.info("✅ LLM setup: GROQ only")
+                else:
+                    self.logger.info("✅ LLM setup: Perplexity only")
             else:
-                self.logger.warning("GROQ_API_KEY not set - LLM features will be disabled")
+                self.logger.warning("No LLM API keys set - LLM features will be disabled")
                 self.llm_service = None
             
             # Notification service

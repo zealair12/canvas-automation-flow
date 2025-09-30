@@ -9,6 +9,7 @@ import SwiftUI
 
 struct CoursesView: View {
     @EnvironmentObject var apiService: APIService
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var showingStudyPlan = false
     @State private var selectedCourses: Set<Course> = []
     @State private var studyPlanResponse = ""
@@ -18,7 +19,7 @@ struct CoursesView: View {
         NavigationView {
             Group {
                 if apiService.isAuthenticated {
-                    if apiService.courses.isEmpty {
+                    if apiService.courses.isEmpty && apiService.coursesByTerm.isEmpty {
                         emptyStateView
                     } else {
                         coursesList
@@ -28,12 +29,15 @@ struct CoursesView: View {
                 }
             }
             .navigationTitle("Courses")
+            .futuristicFont(.futuristicTitle)
+            .foregroundColor(themeManager.textColor)
+            .background(themeManager.backgroundColor)
             .refreshable {
                 await apiService.fetchCourses()
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Study Plan") {
+                    FuturisticButton(title: "Study Plan") {
                         selectedCourses = Set(apiService.courses)
                         showingStudyPlan = true
                     }
@@ -49,14 +53,58 @@ struct CoursesView: View {
                 )
             }
         }
+        .background(themeManager.backgroundColor)
     }
     
     private var coursesList: some View {
-        List(apiService.courses) { course in
-            CourseRowView(course: course)
-                .onTapGesture {
-                    // Navigate to course details
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                ForEach(apiService.coursesByTerm.keys.sorted(), id: \.self) { term in
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Term Header
+                        HStack {
+                            Text(term)
+                                .futuristicFont(.futuristicHeadline)
+                                .foregroundColor(themeManager.accentColor)
+                            
+                            Spacer()
+                            
+                            Text("\(apiService.coursesByTerm[term]?.count ?? 0) courses")
+                                .futuristicFont(.futuristicCaption)
+                                .foregroundColor(themeManager.secondaryTextColor)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Courses in this term
+                        LazyVStack(spacing: 8) {
+                            ForEach(apiService.coursesByTerm[term] ?? []) { course in
+                                CourseRowView(course: course)
+                                    .futuristicCard()
+                                    .glowingBorder()
+                                    .onTapGesture {
+                                        // Navigate to course details
+                                        print("Tapped course: \(course.name)")
+                                    }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
                 }
+                
+            }
+        }
+        .background(themeManager.backgroundColor)
+        .onAppear {
+            print("🔍 CoursesView - Total courses: \(apiService.courses.count)")
+            print("🔍 CoursesView - Terms: \(apiService.coursesByTerm.keys.sorted())")
+            print("🔍 CoursesView - coursesByTerm isEmpty: \(apiService.coursesByTerm.isEmpty)")
+            print("🔍 CoursesView - courses isEmpty: \(apiService.courses.isEmpty)")
+            for (term, courses) in apiService.coursesByTerm {
+                print("🔍 Term '\(term)': \(courses.count) courses")
+                for course in courses {
+                    print("  - \(course.name)")
+                }
+            }
         }
     }
     
@@ -69,10 +117,11 @@ struct CoursesView: View {
             Text("No Courses Found")
                 .font(.title2)
                 .fontWeight(.semibold)
+                .foregroundColor(themeManager.textColor)
             
             Text("Your courses will appear here once you're enrolled")
                 .font(.body)
-                .foregroundColor(.secondary)
+                .foregroundColor(themeManager.secondaryTextColor)
                 .multilineTextAlignment(.center)
             
             Button("Refresh") {
@@ -83,6 +132,7 @@ struct CoursesView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding()
+        .background(themeManager.backgroundColor)
     }
     
     private var unauthenticatedView: some View {
@@ -94,18 +144,21 @@ struct CoursesView: View {
             Text("Sign In Required")
                 .font(.title2)
                 .fontWeight(.semibold)
+                .foregroundColor(themeManager.textColor)
             
             Text("Please sign in to view your courses")
                 .font(.body)
-                .foregroundColor(.secondary)
+                .foregroundColor(themeManager.secondaryTextColor)
                 .multilineTextAlignment(.center)
         }
         .padding()
+        .background(themeManager.backgroundColor)
     }
 }
 
 struct CourseRowView: View {
     let course: Course
+    @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -113,11 +166,12 @@ struct CourseRowView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(course.name)
                         .font(.headline)
+                        .foregroundColor(themeManager.textColor)
                         .lineLimit(2)
                     
                     Text(course.courseCode)
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(themeManager.secondaryTextColor)
                 }
                 
                 Spacer()
@@ -128,7 +182,7 @@ struct CourseRowView: View {
             if let description = course.description, !description.isEmpty {
                 Text(description)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(themeManager.secondaryTextColor)
                     .lineLimit(3)
             }
         }
@@ -138,6 +192,7 @@ struct CourseRowView: View {
 
 struct StatusBadge: View {
     let status: String
+    @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
         Text(status.capitalized)
@@ -154,7 +209,7 @@ struct StatusBadge: View {
         case "available": return .green
         case "unpublished": return .orange
         case "completed": return .blue
-        default: return .gray
+        default: return themeManager.secondaryTextColor
         }
     }
 }
@@ -165,6 +220,7 @@ struct StudyPlanSheet: View {
     @Binding var isLoading: Bool
     let apiService: APIService
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var daysAhead = 7
     
     var body: some View {
@@ -173,6 +229,7 @@ struct StudyPlanSheet: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Selected Courses:")
                         .font(.headline)
+                        .foregroundColor(themeManager.textColor)
                     
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 4) {
@@ -186,6 +243,7 @@ struct StudyPlanSheet: View {
                                     }
                                     Text(course.name)
                                         .font(.subheadline)
+                                        .foregroundColor(themeManager.textColor)
                                     Spacer()
                                 }
                                 .padding(.vertical, 2)
@@ -194,16 +252,18 @@ struct StudyPlanSheet: View {
                     }
                     .frame(maxHeight: 100)
                     .padding()
-                    .background(Color(.systemGray6))
+                    .background(themeManager.surfaceColor)
                     .cornerRadius(8)
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Study Plan Duration:")
                         .font(.headline)
+                        .foregroundColor(themeManager.textColor)
                     
                     HStack {
                         Text("\(daysAhead) days")
+                            .foregroundColor(themeManager.textColor)
                         Slider(value: Binding(
                             get: { Double(daysAhead) },
                             set: { daysAhead = Int($0) }
@@ -227,7 +287,7 @@ struct StudyPlanSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.green)
+                    .background(themeManager.accentColor)
                     .foregroundColor(.white)
                     .cornerRadius(10)
                 }
@@ -238,6 +298,7 @@ struct StudyPlanSheet: View {
                         HStack {
                             Text("AI Study Plan")
                                 .font(.headline)
+                                .foregroundColor(themeManager.textColor)
                             Spacer()
                             Button("Copy") {
                                 UIPasteboard.general.string = response
@@ -249,7 +310,7 @@ struct StudyPlanSheet: View {
                         ScrollView {
                             MathFormattedText(response)
                                 .padding()
-                                .background(Color(.systemGray6))
+                                .background(themeManager.surfaceColor)
                                 .cornerRadius(8)
                         }
                     }
@@ -258,6 +319,7 @@ struct StudyPlanSheet: View {
                 Spacer()
             }
             .padding()
+            .background(themeManager.backgroundColor)
             .navigationTitle("📅 AI Study Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -268,6 +330,7 @@ struct StudyPlanSheet: View {
                 }
             }
         }
+        .background(themeManager.backgroundColor)
     }
     
     private func generateStudyPlan() async {

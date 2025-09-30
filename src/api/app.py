@@ -14,8 +14,12 @@ from functools import wraps
 
 from src.auth.auth_service import CanvasAuthService, TokenManager, User, UserRole
 from src.canvas.canvas_client import CanvasAPIClient, CanvasAPIError
+from src.canvas.file_upload_service import CanvasFileUploadService
+from src.canvas.assignment_submission_service import CanvasAssignmentSubmissionService
+from src.canvas.study_plan_service import EnhancedStudyPlanService
 from src.models.data_models import Course, Assignment, Submission, Reminder, FeedbackDraft, AssignmentStatus, File
 from src.llm.llm_service import LLMService, create_llm_adapter, LLMProvider
+from src.api.course_consistency import CourseConsistencyChecker
 
 
 # Initialize Flask app
@@ -32,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 # Global services (in production, use dependency injection)
 token_manager = TokenManager(os.getenv('ENCRYPTION_KEY'))
+course_consistency_checker = CourseConsistencyChecker()
 
 # Initialize auth service with validation
 canvas_base_url = os.getenv('CANVAS_BASE_URL')
@@ -46,14 +51,34 @@ auth_service = CanvasAuthService(
     token_manager=token_manager
 )
 
-# Initialize LLM service only if API key is available
+# Initialize LLM service with dual API support
 groq_api_key = os.getenv('GROQ_API_KEY')
-if groq_api_key:
+perplexity_api_key = os.getenv('PERPLEXITY_API_KEY')
+
+if groq_api_key or perplexity_api_key:
+    # Create GROQ adapter for calculations
+    groq_adapter = None
+    if groq_api_key:
+        groq_adapter = create_llm_adapter(LLMProvider.GROQ, api_key=groq_api_key)
+    
+    # Create Perplexity adapter for factual research
+    perplexity_adapter = None
+    if perplexity_api_key:
+        perplexity_adapter = create_llm_adapter(LLMProvider.PERPLEXITY, api_key=perplexity_api_key)
+    
     llm_service = LLMService(
-        create_llm_adapter(LLMProvider.GROQ, api_key=groq_api_key)
+        adapter=groq_adapter or perplexity_adapter,
+        perplexity_adapter=perplexity_adapter
     )
+    
+    if groq_api_key and perplexity_api_key:
+        logger.info("✅ Dual LLM setup: GROQ for calculations, Perplexity for facts")
+    elif groq_api_key:
+        logger.info("✅ LLM setup: GROQ only")
+    else:
+        logger.info("✅ LLM setup: Perplexity only")
 else:
-    logger.warning("GROQ_API_KEY not set - LLM features will be disabled")
+    logger.warning("No LLM API keys set - LLM features will be disabled")
     llm_service = None
 
 
@@ -171,25 +196,106 @@ def get_user_courses():
         
         logger.info(f"Retrieved {len(courses_data)} courses from Canvas")
         
-        # Return simplified course data first
-        simplified_courses = []
+        # Group courses by term
+        courses_by_term = {}
         for course_data in courses_data:
-            # Skip courses without essential data
+            # Include all courses, even those without names or with access restrictions
+            course_name = course_data.get('name', f"Course {course_data.get('id', 'Unknown')}")
             if not course_data.get('name'):
-                logger.info(f"Skipping course {course_data.get('id')} - missing name")
-                continue
+                logger.info(f"Including course {course_data.get('id')} with generated name: {course_name}")
+            
+            term_name = course_data.get('term', {}).get('name', 'Unknown Term')
+            if term_name not in courses_by_term:
+                courses_by_term[term_name] = []
                 
-            simplified_courses.append({
+            course_info = {
                 'id': f"course_{course_data['id']}",
                 'canvas_course_id': str(course_data['id']),
-                'name': course_data['name'],
+                'name': course_name,
                 'course_code': course_data.get('course_code', ''),
                 'description': course_data.get('description', ''),
-                'workflow_state': course_data.get('workflow_state', 'available')
-            })
+                'workflow_state': course_data.get('workflow_state', 'available'),
+                'access_restricted_by_date': course_data.get('access_restricted_by_date', False),
+                'term': term_name,
+                'start_at': course_data.get('start_at'),
+                'end_at': course_data.get('end_at')
+            }
+            courses_by_term[term_name].append(course_info)
         
-        logger.info(f"Successfully processed {len(simplified_courses)} courses")
-        return jsonify({'courses': simplified_courses})
+        # Sort terms by date (Fall 2024, Spring 2025, Fall 2025)
+        sorted_terms = sorted(courses_by_term.keys(), key=lambda x: (
+            'Fall' in x and '2024' in x and 1,
+            'Spring' in x and '2025' in x and 2,
+            'Fall' in x and '2025' in x and 3
+        ))
+        
+        # Flatten courses maintaining term order
+        simplified_courses = []
+        for term in sorted_terms:
+            simplified_courses.extend(courses_by_term[term])
+        
+        logger.info(f"Successfully processed {len(simplified_courses)} courses across {len(courses_by_term)} terms")
+        return jsonify({
+            'courses': simplified_courses,
+            'courses_by_term': courses_by_term,
+            'total_courses': len(simplified_courses),
+            'terms': sorted_terms
+        })
+        
+    except CanvasAPIError as e:
+        logger.error(f"Canvas API error: {e}")
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/courses/consistency', methods=['GET'])
+@require_auth
+def check_course_consistency():
+    """Check consistency between Canvas API courses and app-visible courses"""
+    try:
+        logger.info("Starting course consistency check")
+        
+        # Create Canvas client
+        client = CanvasAPIClient(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        # Get all courses from API
+        api_courses = client.get_courses()
+        logger.info(f"Retrieved {len(api_courses)} courses from Canvas API")
+        
+        # Get app-visible courses (simplified for now - in real app, this would come from app state)
+        app_courses = []
+        for course_data in api_courses:
+            # Simulate app filtering (e.g., only starred courses)
+            if not course_data.get('access_restricted_by_date', False):
+                app_courses.append({
+                    'id': course_data.get('id'),
+                    'name': course_data.get('name'),
+                    'term': course_data.get('term', {})
+                })
+        
+        # Analyze consistency
+        report = course_consistency_checker.analyze_course_consistency(api_courses, app_courses)
+        
+        # Format report
+        report_table = course_consistency_checker.format_report_table(report)
+        
+        return jsonify({
+            'report': {
+                'total_api_courses': report.total_api_courses,
+                'total_app_courses': report.total_app_courses,
+                'missing_from_app': report.missing_from_app,
+                'restricted_courses': report.restricted_courses,
+                'future_courses': report.future_courses,
+                'past_courses': report.past_courses,
+                'recommendations': report.recommendations
+            },
+            'formatted_report': report_table
+        })
         
     except CanvasAPIError as e:
         logger.error(f"Canvas API error: {e}")
@@ -354,6 +460,231 @@ def get_assignment_submissions(course_id: str, assignment_id: str):
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+# File upload endpoints
+# File upload functionality moved to AI Assignment help endpoint
+# General file upload endpoints removed - use /api/ai/assignment-help for file uploads with AI context
+# File uploads are now integrated into the AI assignment help workflow for better context management
+
+# Assignment submission endpoints
+@app.route('/api/assignments/submit-text', methods=['POST'])
+@require_auth
+def submit_assignment_text():
+    """Submit an assignment with text entry"""
+    try:
+        data = request.get_json()
+        course_id = data.get('course_id')
+        assignment_id = data.get('assignment_id')
+        text_content = data.get('text_content')
+        comment = data.get('comment', '')
+        
+        if not all([course_id, assignment_id, text_content]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        submission_service = CanvasAssignmentSubmissionService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        submission_info = submission_service.submit_text_entry(
+            course_id=course_id,
+            assignment_id=assignment_id,
+            text_content=text_content,
+            comment=comment
+        )
+        
+        return jsonify({
+            'success': True,
+            'submission': submission_info
+        })
+        
+    except Exception as e:
+        logger.error(f"Text submission error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/assignments/submit-files', methods=['POST'])
+@require_auth
+def submit_assignment_files():
+    """Submit an assignment with file uploads"""
+    try:
+        data = request.get_json()
+        course_id = data.get('course_id')
+        assignment_id = data.get('assignment_id')
+        file_ids = data.get('file_ids', [])
+        comment = data.get('comment', '')
+        
+        if not all([course_id, assignment_id, file_ids]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        submission_service = CanvasAssignmentSubmissionService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        submission_info = submission_service.submit_file_upload(
+            course_id=course_id,
+            assignment_id=assignment_id,
+            file_ids=file_ids,
+            comment=comment
+        )
+        
+        return jsonify({
+            'success': True,
+            'submission': submission_info
+        })
+        
+    except Exception as e:
+        logger.error(f"File submission error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/assignments/submit-url', methods=['POST'])
+@require_auth
+def submit_assignment_url():
+    """Submit an assignment with a URL"""
+    try:
+        data = request.get_json()
+        course_id = data.get('course_id')
+        assignment_id = data.get('assignment_id')
+        url_submission = data.get('url')
+        comment = data.get('comment', '')
+        
+        if not all([course_id, assignment_id, url_submission]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        submission_service = CanvasAssignmentSubmissionService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        submission_info = submission_service.submit_url(
+            course_id=course_id,
+            assignment_id=assignment_id,
+            url_submission=url_submission,
+            comment=comment
+        )
+        
+        return jsonify({
+            'success': True,
+            'submission': submission_info
+        })
+        
+    except Exception as e:
+        logger.error(f"URL submission error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# Calendar integration endpoints
+@app.route('/api/calendar/events', methods=['POST'])
+@require_auth
+def create_calendar_events():
+    """Create calendar events from study plan"""
+    try:
+        data = request.get_json()
+        events = data.get('events', [])
+        
+        # For now, return the events for client-side calendar integration
+        # In the future, this could integrate with Google Calendar, Apple Calendar, etc.
+        
+        return jsonify({
+            'success': True,
+            'events': events,
+            'message': 'Calendar events ready for integration'
+        })
+        
+    except Exception as e:
+        logger.error(f"Calendar events error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/calendar/export', methods=['POST'])
+@require_auth
+def export_calendar_events():
+    """Export calendar events in various formats"""
+    try:
+        data = request.get_json()
+        events = data.get('events', [])
+        format_type = data.get('format', 'ics')  # ics, csv, json
+        
+        if format_type == 'ics':
+            # Generate ICS format for calendar import
+            ics_content = generate_ics_content(events)
+            return jsonify({
+                'success': True,
+                'format': 'ics',
+                'content': ics_content,
+                'filename': 'study_plan.ics'
+            })
+        elif format_type == 'csv':
+            # Generate CSV format
+            csv_content = generate_csv_content(events)
+            return jsonify({
+                'success': True,
+                'format': 'csv',
+                'content': csv_content,
+                'filename': 'study_plan.csv'
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'format': 'json',
+                'content': events,
+                'filename': 'study_plan.json'
+            })
+        
+    except Exception as e:
+        logger.error(f"Calendar export error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+def generate_ics_content(events):
+    """Generate ICS calendar format content"""
+    ics_lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Canvas Automation Flow//Study Plan//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH"
+    ]
+    
+    for event in events:
+        start_time = event['start_time'].replace(':', '').replace('-', '')
+        end_time = event['end_time'].replace(':', '').replace('-', '')
+        
+        ics_lines.extend([
+            "BEGIN:VEVENT",
+            f"DTSTART:{start_time}",
+            f"DTEND:{end_time}",
+            f"SUMMARY:{event['title']}",
+            f"DESCRIPTION:{event['description']}",
+            "STATUS:CONFIRMED",
+            "END:VEVENT"
+        ])
+    
+    ics_lines.append("END:VCALENDAR")
+    return '\n'.join(ics_lines)
+
+
+def generate_csv_content(events):
+    """Generate CSV format content"""
+    csv_lines = ["Subject,Start Date,Start Time,End Date,End Time,Description"]
+    
+    for event in events:
+        start_dt = datetime.fromisoformat(event['start_time'])
+        end_dt = datetime.fromisoformat(event['end_time'])
+        
+        csv_lines.append(
+            f'"{event["title"]}",'
+            f'{start_dt.strftime("%Y-%m-%d")},'
+            f'{start_dt.strftime("%H:%M")},'
+            f'{end_dt.strftime("%Y-%m-%d")},'
+            f'{end_dt.strftime("%H:%M")},'
+            f'"{event["description"]}"'
+        )
+    
+    return '\n'.join(csv_lines)
 
 
 # Reminder endpoints
@@ -705,25 +1036,80 @@ def health_check():
 @app.route('/api/ai/assignment-help', methods=['POST'])
 @require_auth
 def get_assignment_help():
-    """Get AI help for an assignment"""
+    """Get AI help for an assignment with optional file upload for context"""
     try:
-        data = request.get_json()
+        # Handle both form data (for file uploads) and JSON data
+        uploaded_files = []
+
+        # Check for file uploads in form data
+        if 'files' in request.files:
+            files = request.files.getlist('files')
+            for file in files:
+                if file and file.filename:
+                    # Save uploaded file temporarily
+                    import tempfile
+
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
+                        file.save(temp_file.name)
+                        temp_file_path = temp_file.name
+
+                    try:
+                        # Initialize file upload service
+                        upload_service = CanvasFileUploadService(
+                            base_url=os.getenv('CANVAS_BASE_URL'),
+                            access_token=g.canvas_token
+                        )
+
+                        # Upload to user's personal files for context
+                        file_info = upload_service.upload_file_to_user(
+                            file_path=temp_file_path,
+                            parent_folder_path="ai_context"
+                        )
+
+                        uploaded_files.append({
+                            'id': file_info.get('id'),
+                            'display_name': file_info.get('display_name', file.filename),
+                            'filename': file_info.get('filename', file.filename),
+                            'size': file_info.get('size', 0),
+                            'content_type': file_info.get('content-type', 'application/octet-stream'),
+                            'url': file_info.get('url'),
+                            'description': f'Context file for AI assignment help: {file.filename}'
+                        })
+
+                    finally:
+                        # Clean up temporary file
+                        import os as os_module
+                        os_module.unlink(temp_file_path)
+
+        # Get JSON data for assignment details
+        data = request.get_json() if request.is_json else {}
         assignment_id = data.get('assignment_id')
+        course_id = data.get('course_id')
         question = data.get('question', '')
-        
+
         if not assignment_id:
             return jsonify({'error': 'Assignment ID is required'}), 400
-        
+
+        if not course_id:
+            return jsonify({'error': 'Course ID is required'}), 400
+
         client = CanvasAPIClient(
             base_url=os.getenv('CANVAS_BASE_URL'),
             access_token=g.canvas_token
         )
-        
+
         # Get assignment details
-        assignment_data = client.get_assignment_details(assignment_id)
-        if not assignment_data:
-            return jsonify({'error': 'Assignment not found'}), 404
-        
+        try:
+            assignment_data = client.get_assignment(course_id, assignment_id)
+            if not assignment_data:
+                return jsonify({'error': 'Assignment not found'}), 404
+        except CanvasAPIError as e:
+            logger.error(f"Canvas API error for assignment {assignment_id}: {e}")
+            if "Resource not found" in str(e):
+                return jsonify({'error': 'Assignment not found'}), 404
+            else:
+                return jsonify({'error': f'Cannot access assignment: {str(e)}'}), 403
+
         # Create assignment object
         assignment = Assignment(
             id=f"assignment_{assignment_data['id']}",
@@ -731,23 +1117,24 @@ def get_assignment_help():
             course_id=str(assignment_data.get('course_id', '')),
             name=assignment_data.get('name', ''),
             description=assignment_data.get('description', ''),
-            due_at=assignment_data.get('due_at'),
+            due_at=datetime.fromisoformat(assignment_data['due_at'].replace('Z', '+00:00')) if assignment_data.get('due_at') else None,
             points_possible=assignment_data.get('points_possible', 0),
             grading_type=assignment_data.get('grading_type', 'points'),
             submission_types=assignment_data.get('submission_types', []),
             allowed_extensions=assignment_data.get('allowed_extensions', []),
             status=AssignmentStatus.PUBLISHED
         )
-        
-        # Get AI help
-        help_response = llm_service.generate_assignment_help(assignment, question)
-        
+
+        # Get AI help with uploaded files as context
+        help_response = llm_service.generate_assignment_help(assignment, question, context_files=uploaded_files)
+
         return jsonify({
             'assignment': assignment.to_dict(),
             'help': help_response.content,
-            'model': help_response.model
+            'model': help_response.model,
+            'uploaded_files': uploaded_files
         })
-        
+
     except CanvasAPIError as e:
         logger.error(f"Canvas API error: {e}")
         return jsonify({'error': str(e)}), 500
@@ -771,31 +1158,54 @@ def generate_study_plan():
         
         all_assignments = []
         for course_id in course_ids:
-            assignments_data = client.get_assignments(course_id)
-            for assignment_data in assignments_data:
-                assignment = Assignment(
-                    id=f"assignment_{assignment_data['id']}",
-                    canvas_assignment_id=str(assignment_data['id']),
-                    course_id=course_id,
-                    name=assignment_data.get('name', ''),
-                    description=assignment_data.get('description', ''),
-                    due_at=assignment_data.get('due_at'),
-                    points_possible=assignment_data.get('points_possible', 0),
-                    grading_type=assignment_data.get('grading_type', 'points'),
-                    submission_types=assignment_data.get('submission_types', []),
-                    allowed_extensions=assignment_data.get('allowed_extensions', []),
-                    status=AssignmentStatus.PUBLISHED
-                )
-                all_assignments.append(assignment)
+            try:
+                assignments_data = client.get_assignments(course_id)
+                for assignment_data in assignments_data:
+                    assignment = Assignment(
+                        id=f"assignment_{assignment_data['id']}",
+                        canvas_assignment_id=str(assignment_data['id']),
+                        course_id=course_id,
+                        name=assignment_data.get('name', ''),
+                        description=assignment_data.get('description', ''),
+                        due_at=assignment_data.get('due_at'),  # Keep as string for LLM service
+                        points_possible=assignment_data.get('points_possible', 0),
+                        grading_type=assignment_data.get('grading_type', 'points'),
+                        submission_types=assignment_data.get('submission_types', []),
+                        allowed_extensions=assignment_data.get('allowed_extensions', []),
+                        status=AssignmentStatus.PUBLISHED
+                    )
+                    all_assignments.append(assignment)
+            except CanvasAPIError as e:
+                logger.warning(f"Skipping course {course_id} due to access restrictions: {e}")
+                continue
         
-        # Generate study plan
-        study_plan = llm_service.create_study_plan(all_assignments, days_ahead)
+        # Generate enhanced study plan with grades, syllabus, and calendar
+        enhanced_service = EnhancedStudyPlanService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        enhanced_plan = enhanced_service.generate_enhanced_study_plan(course_ids, days_ahead)
+        
+        if 'error' in enhanced_plan:
+            # Fallback to basic study plan
+            study_plan = llm_service.create_study_plan(all_assignments, days_ahead)
+            return jsonify({
+                'study_plan': study_plan.content,
+                'model': study_plan.model,
+                'assignments_count': len(all_assignments),
+                'days_ahead': days_ahead,
+                'enhanced': False
+            })
         
         return jsonify({
-            'study_plan': study_plan.content,
-            'model': study_plan.model,
+            'study_plan': enhanced_plan['study_plan'],
+            'performance_analysis': enhanced_plan['performance_analysis'],
+            'calendar_events': enhanced_plan['calendar_events'],
+            'syllabus_insights': enhanced_plan['syllabus_insights'],
             'assignments_count': len(all_assignments),
-            'days_ahead': days_ahead
+            'days_ahead': days_ahead,
+            'enhanced': True
         })
         
     except CanvasAPIError as e:
