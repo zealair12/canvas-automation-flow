@@ -104,13 +104,12 @@ struct CoursesView: View {
                             // Courses in this term
                             LazyVStack(spacing: 8) {
                                 ForEach(filteredCoursesByTerm[term] ?? []) { course in
-                                    CourseRowView(course: course)
-                                        .futuristicCard()
-                                        .glowingBorder()
-                                        .onTapGesture {
-                                            // Navigate to course details
-                                            print("Tapped course: \(course.name)")
-                                        }
+                                    NavigationLink(destination: CourseDetailView(course: course)) {
+                                        CourseRowView(course: course)
+                                            .futuristicCard()
+                                            .glowingBorder()
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
                                 }
                             }
                             .padding(.horizontal)

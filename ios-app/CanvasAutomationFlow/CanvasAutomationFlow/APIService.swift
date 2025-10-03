@@ -682,6 +682,119 @@ class APIService: ObservableObject {
             return false
         }
     }
+    
+    // MARK: - Course Detail Features
+    
+    func getCourseFrontPage(courseId: String) async -> CoursePage? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/front_page") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(CoursePageResponse.self, from: data)
+            return response.page
+        } catch {
+            print("Error fetching front page: \(error)")
+            return nil
+        }
+    }
+    
+    func getCourseSyllabus(courseId: String) async -> String? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/syllabus") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let syllabus = json["syllabus_body"] as? String {
+                return syllabus
+            }
+        } catch {
+            print("Error fetching syllabus: \(error)")
+        }
+        
+        return nil
+    }
+    
+    func getCourseAnnouncements(courseId: String) async -> [Announcement]? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/announcements") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(AnnouncementsResponse.self, from: data)
+            return response.announcements
+        } catch {
+            print("Error fetching announcements: \(error)")
+            return nil
+        }
+    }
+    
+    func getCourseModules(courseId: String) async -> [CourseModule]? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/modules") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(ModulesResponse.self, from: data)
+            return response.modules
+        } catch {
+            print("Error fetching modules: \(error)")
+            return nil
+        }
+    }
+    
+    func getCourseDiscussions(courseId: String) async -> [Discussion]? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/discussions") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(DiscussionsResponse.self, from: data)
+            return response.discussions
+        } catch {
+            print("Error fetching discussions: \(error)")
+            return nil
+        }
+    }
+    
+    func getCourseGrades(courseId: String) async -> CourseGrade? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/grades") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(CourseGradeResponse.self, from: data)
+            return response.grade
+        } catch {
+            print("Error fetching grades: \(error)")
+            return nil
+        }
+    }
 }
 
 // MARK: - Data Models
@@ -875,6 +988,120 @@ struct Reminder: Codable, Identifiable, Hashable {
     }
 }
 
+// MARK: - Course Detail Models
+
+struct CoursePage: Codable, Identifiable {
+    let id: String
+    let title: String
+    let body: String?
+    let url: String?
+    let createdAt: String?
+    let updatedAt: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, title, body, url
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct Announcement: Codable, Identifiable {
+    let id: String
+    let title: String
+    let message: String?
+    let author: String?
+    let postedAt: String?
+    let readState: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, title, message, author
+        case postedAt = "posted_at"
+        case readState = "read_state"
+    }
+}
+
+struct CourseModule: Codable, Identifiable {
+    let id: String
+    let name: String
+    let position: Int?
+    let unlockAt: String?
+    let requireSequentialProgress: Bool?
+    let itemsCount: Int?
+    let items: [ModuleItem]
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, position, items
+        case unlockAt = "unlock_at"
+        case requireSequentialProgress = "require_sequential_progress"
+        case itemsCount = "items_count"
+    }
+}
+
+struct ModuleItem: Codable, Identifiable {
+    let id: String
+    let title: String
+    let type: String
+    let contentId: String?
+    let position: Int?
+    let indent: Int?
+    let url: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, title, type, position, indent, url
+        case contentId = "content_id"
+    }
+}
+
+struct Discussion: Codable, Identifiable {
+    let id: String
+    let title: String
+    let message: String?
+    let postedAt: String?
+    let author: String?
+    let unreadCount: Int?
+    let discussionType: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, title, message, author
+        case postedAt = "posted_at"
+        case unreadCount = "unread_count"
+        case discussionType = "discussion_type"
+    }
+}
+
+struct CourseGrade: Codable {
+    let currentScore: Double?
+    let currentGrade: String?
+    let finalScore: Double?
+    let finalGrade: String?
+    let assignmentGrades: [AssignmentGrade]
+    
+    enum CodingKeys: String, CodingKey {
+        case assignmentGrades = "assignment_grades"
+        case currentScore = "current_score"
+        case currentGrade = "current_grade"
+        case finalScore = "final_score"
+        case finalGrade = "final_grade"
+    }
+}
+
+struct AssignmentGrade: Codable {
+    let assignmentId: String
+    let assignmentName: String
+    let score: Double?
+    let possiblePoints: Double?
+    let submittedAt: String?
+    let grade: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case grade, score
+        case assignmentId = "assignment_id"
+        case assignmentName = "assignment_name"
+        case possiblePoints = "possible_points"
+        case submittedAt = "submitted_at"
+    }
+}
+
 // MARK: - Response Models
 
 struct CoursesResponse: Codable {
@@ -917,4 +1144,24 @@ struct RemindersResponse: Codable {
 struct FileUploadResponse: Codable {
     let success: Bool
     let file: File?
+}
+
+struct CoursePageResponse: Codable {
+    let page: CoursePage
+}
+
+struct AnnouncementsResponse: Codable {
+    let announcements: [Announcement]
+}
+
+struct ModulesResponse: Codable {
+    let modules: [CourseModule]
+}
+
+struct DiscussionsResponse: Codable {
+    let discussions: [Discussion]
+}
+
+struct CourseGradeResponse: Codable {
+    let grade: CourseGrade
 }

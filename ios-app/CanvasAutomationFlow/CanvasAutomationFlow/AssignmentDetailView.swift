@@ -70,7 +70,7 @@ struct AssignmentDetailView: View {
                         .padding(.horizontal, 20)
                     }
                     
-                    // Submission Types - Centered and Full Width
+                    // Submission Types - Full Screen Width
                     if !assignment.submissionTypes.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("How to Submit")
@@ -85,7 +85,6 @@ struct AssignmentDetailView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
                         .futuristicCard()
-                        .padding(.horizontal, 20)
                     }
                     
                     // File upload functionality moved to AI Assignment Help

@@ -80,19 +80,6 @@ struct DashboardView: View {
                 }
                 .padding(.horizontal)
                 
-                // Upcoming Assignments
-                if !apiService.assignments.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Upcoming Assignments")
-                            .font(.headline)
-                            .padding(.horizontal)
-                        
-                        ForEach(apiService.assignments.prefix(5)) { assignment in
-                            AssignmentRowView(assignment: assignment)
-                        }
-                    }
-                }
-                
                 // AI Quick Actions
                 VStack(alignment: .leading, spacing: 12) {
                     Text("AI Quick Actions")
