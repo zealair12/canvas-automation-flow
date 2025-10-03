@@ -52,7 +52,7 @@ struct AssignmentDetailView: View {
                     .padding()
                     .futuristicCard()
                     
-                    // Assignment Description
+                    // Assignment Description - Centered and Full Width
                     if let description = assignment.description, !description.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Description")
@@ -64,11 +64,13 @@ struct AssignmentDetailView: View {
                                 .background(themeManager.surfaceColor)
                                 .cornerRadius(8)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
                         .futuristicCard()
+                        .padding(.horizontal, 20)
                     }
                     
-                    // Submission Types
+                    // Submission Types - Centered and Full Width
                     if !assignment.submissionTypes.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("How to Submit")
@@ -80,8 +82,10 @@ struct AssignmentDetailView: View {
                                     .foregroundColor(themeManager.textColor)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
                         .futuristicCard()
+                        .padding(.horizontal, 20)
                     }
                     
                     // File upload functionality moved to AI Assignment Help
