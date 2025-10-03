@@ -15,6 +15,7 @@ struct AssignmentsView: View {
     @State private var aiQuestion = ""
     @State private var aiResponse = ""
     @State private var isLoadingAI = false
+    @State private var searchText = ""
     
     enum AssignmentFilter: String, CaseIterable {
         case all = "All"
@@ -24,15 +25,26 @@ struct AssignmentsView: View {
     }
     
     var filteredAssignments: [Assignment] {
+        let filterByStatus: [Assignment]
         switch selectedFilter {
         case .all:
-            return apiService.assignments
+            filterByStatus = apiService.assignments
         case .dueSoon:
-            return apiService.assignments.filter { $0.isDueSoon && !$0.isOverdue }
+            filterByStatus = apiService.assignments.filter { $0.isDueSoon && !$0.isOverdue }
         case .overdue:
-            return apiService.assignments.filter { $0.isOverdue }
+            filterByStatus = apiService.assignments.filter { $0.isOverdue }
         case .completed:
-            return apiService.assignments.filter { $0.status == "graded" }
+            filterByStatus = apiService.assignments.filter { $0.status == "graded" }
+        }
+        
+        // Apply search filter
+        if searchText.isEmpty {
+            return filterByStatus
+        } else {
+            return filterByStatus.filter { assignment in
+                assignment.name.localizedCaseInsensitiveContains(searchText) ||
+                (assignment.description ?? "").localizedCaseInsensitiveContains(searchText)
+            }
         }
     }
     
@@ -79,7 +91,12 @@ struct AssignmentsView: View {
     }
     
     private var assignmentsList: some View {
-        List(filteredAssignments) { assignment in
+        VStack(spacing: 0) {
+            // Search Bar
+            SearchBarView(text: $searchText, placeholder: "Search assignments...")
+                .padding()
+            
+            List(filteredAssignments) { assignment in
             NavigationLink(destination: AssignmentDetailView(assignment: assignment)) {
                 AssignmentDetailRowView(assignment: assignment)
             }
@@ -94,6 +111,7 @@ struct AssignmentsView: View {
                 }
                 .tint(.blue)
             }
+        }
         }
     }
     
@@ -356,7 +374,7 @@ struct AIHelpSheet: View {
                         }
                         
                         ScrollView {
-                            MathFormattedText(response)
+                            MarkdownView(content: response, sources: nil)
                                 .padding()
                                 .background(Color(.systemGray6))
                                 .cornerRadius(8)
@@ -385,13 +403,19 @@ struct AIHelpSheet: View {
         isLoading = true
         response = ""
         
-        let help = await apiService.getAssignmentHelp(
+        let helpResult = await apiService.getAssignmentHelp(
             assignmentId: assignment.canvasAssignmentId,
             courseId: assignment.courseId,
-            question: question
+            question: question,
+            helpType: "guidance"  // Quick help from swipe action
         )
         
-        response = help ?? "Sorry, I couldn't get help for this assignment. Please try again."
+        if let result = helpResult {
+            response = result.content
+        } else {
+            response = "Sorry, I couldn't get help for this assignment. Please try again."
+        }
+        
         isLoading = false
     }
 }

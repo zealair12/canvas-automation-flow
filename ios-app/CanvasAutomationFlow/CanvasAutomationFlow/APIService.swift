@@ -348,7 +348,7 @@ class APIService: ObservableObject {
     
     // MARK: - AI-Powered Features
     
-    func getAssignmentHelp(assignmentId: String, courseId: String, question: String) async -> String? {
+    func getAssignmentHelp(assignmentId: String, courseId: String, question: String, helpType: String = "guidance") async -> (content: String, sources: [[String: String]]?)? {
         guard let token = authToken else { return nil }
         
         guard let url = URL(string: "\(baseURL)/api/ai/assignment-help") else { return nil }
@@ -358,10 +358,11 @@ class APIService: ObservableObject {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let requestBody = [
+        let requestBody: [String: Any] = [
             "assignment_id": assignmentId,
             "course_id": courseId,
-            "question": question
+            "question": question,
+            "help_type": helpType
         ]
         
         do {
@@ -370,7 +371,8 @@ class APIService: ObservableObject {
             
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let help = json["help"] as? String {
-                return help
+                let sources = json["sources"] as? [[String: String]]
+                return (content: help, sources: sources)
             }
         } catch {
             print("Error getting assignment help: \(error)")
@@ -379,7 +381,7 @@ class APIService: ObservableObject {
         return nil
     }
 
-    func getAssignmentHelpWithFiles(assignmentId: String, courseId: String, question: String, files: [File]) async -> String? {
+    func getAssignmentHelpWithFiles(assignmentId: String, courseId: String, question: String, files: [File], helpType: String = "guidance") async -> (content: String, sources: [[String: String]]?)? {
         guard let token = authToken else { return nil }
 
         guard let url = URL(string: "\(baseURL)/api/ai/assignment-help") else { return nil }
@@ -395,10 +397,11 @@ class APIService: ObservableObject {
         var body = Data()
 
         // Add JSON data
-        let jsonData = [
+        let jsonData: [String: Any] = [
             "assignment_id": assignmentId,
             "course_id": courseId,
-            "question": question
+            "question": question,
+            "help_type": helpType
         ]
 
         if let jsonString = try? JSONSerialization.data(withJSONObject: jsonData) {
@@ -431,7 +434,8 @@ class APIService: ObservableObject {
 
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let help = json["help"] as? String {
-                return help
+                let sources = json["sources"] as? [[String: String]]
+                return (content: help, sources: sources)
             }
         } catch {
             print("Error getting assignment help with files: \(error)")

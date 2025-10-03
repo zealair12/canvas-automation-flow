@@ -46,21 +46,13 @@ struct ContentView: View {
                 }
                 .tag(3)
             
-            // File Upload Tab
-            FileUploadView()
-                .tabItem {
-                    Image(systemName: "arrow.up.doc.fill")
-                    Text("Upload")
-                }
-                .tag(4)
-            
             // AI Assistant Tab
             AIAssistantView()
                 .tabItem {
                     Image(systemName: "sparkles")
                     Text("AI Assistant")
                 }
-                .tag(5)
+                .tag(4)
             
             // Reminders Tab
             RemindersView()
@@ -68,15 +60,15 @@ struct ContentView: View {
                     Image(systemName: "bell.fill")
                     Text("Reminders")
                 }
-                .tag(6)
+                .tag(5)
             
             // Settings Tab
             SettingsView()
                 .tabItem {
                     Image(systemName: "gear")
-                    Text("Settings")
+                    Text("More")
                 }
-                .tag(7)
+                .tag(6)
         }
         .environmentObject(apiService)
         .background(themeManager.backgroundColor)

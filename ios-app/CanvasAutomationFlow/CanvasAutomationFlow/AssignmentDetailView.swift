@@ -86,25 +86,29 @@ struct AssignmentDetailView: View {
                     
                     // File upload functionality moved to AI Assignment Help
                     
-                    // Action Buttons
-                    VStack(spacing: 12) {
+                    // Action Buttons - Centered and Full Width
+                    VStack(spacing: 16) {
                         FuturisticButton(title: "AI Help & Analysis") {
                             showingAIHelp = true
                         }
+                        .frame(maxWidth: .infinity)
                         
                         if assignment.submissionTypes.contains("online_upload") {
                             FuturisticButton(title: "Submit Files") {
                                 showingSubmission = true
                             }
+                            .frame(maxWidth: .infinity)
                         }
                         
                         if assignment.submissionTypes.contains("online_text_entry") {
                             FuturisticButton(title: "Submit Text") {
                                 showingTextSubmission = true
                             }
+                            .frame(maxWidth: .infinity)
                         }
                     }
-                    .padding()
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
                 }
             }
             .background(themeManager.backgroundColor)
@@ -315,12 +319,25 @@ struct AssignmentAIHelpView: View {
                 // Response
                 if !response.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("AI Response")
-                            .futuristicFont(.futuristicHeadline)
+                        HStack {
+                            Text("AI Response")
+                                .futuristicFont(.futuristicHeadline)
+                                .foregroundColor(themeManager.accentColor)
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                UIPasteboard.general.string = response
+                            }) {
+                                Image(systemName: "doc.on.doc")
+                                Text("Copy")
+                            }
+                            .futuristicFont(.futuristicCaption)
                             .foregroundColor(themeManager.accentColor)
+                        }
                         
                         ScrollView {
-                            AIResponseView(content: response)
+                            MarkdownView(content: response, sources: nil)
                                 .padding()
                         }
                         .frame(maxHeight: 300)
@@ -354,14 +371,28 @@ struct AssignmentAIHelpView: View {
         let contextInfo = contextFiles.map { "File: \($0.displayName)" }.joined(separator: "\n")
         let fullQuestion = question + (contextInfo.isEmpty ? "" : "\n\nContext files:\n\(contextInfo)")
         
+        // Map help type to API parameter
+        let helpTypeParam = selectedHelpType.rawValue.lowercased()
+        
         let helpResponse = await apiService.getAssignmentHelpWithFiles(
             assignmentId: assignment.canvasAssignmentId,
             courseId: assignment.courseId,
             question: fullQuestion,
-            files: contextFiles
+            files: contextFiles,
+            helpType: helpTypeParam
         )
         
-        response = helpResponse ?? "Sorry, I couldn't get help for this assignment. Please try again."
+        if let result = helpResponse {
+            response = result.content
+            // Store sources for citation display
+            if let sources = result.sources {
+                // Sources will be handled by MarkdownView
+                print("Received \(sources.count) sources")
+            }
+        } else {
+            response = "Sorry, I couldn't get help for this assignment. Please try again."
+        }
+        
         isLoading = false
     }
 }

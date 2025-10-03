@@ -20,6 +20,10 @@ from src.canvas.study_plan_service import EnhancedStudyPlanService
 from src.models.data_models import Course, Assignment, Submission, Reminder, FeedbackDraft, AssignmentStatus, File
 from src.llm.llm_service import LLMService, create_llm_adapter, LLMProvider
 from src.api.course_consistency import CourseConsistencyChecker
+from src.calendar.calendar_service import CalendarService
+from src.canvas.quiz_service import CanvasQuizService
+from src.ai.assignment_completion_service import AssignmentCompletionService
+from src.document.document_generation_service import DocumentGenerationService
 
 
 # Initialize Flask app
@@ -606,16 +610,33 @@ def export_calendar_events():
     try:
         data = request.get_json()
         events = data.get('events', [])
+        assignments = data.get('assignments', [])
         format_type = data.get('format', 'ics')  # ics, csv, json
+        user_email = data.get('user_email')
         
         if format_type == 'ics':
-            # Generate ICS format for calendar import
-            ics_content = generate_ics_content(events)
+            # Use CalendarService for proper .ics generation
+            calendar_service = CalendarService()
+            
+            if assignments:
+                # Generate from assignments
+                filepath = calendar_service.create_calendar_events_from_assignments(
+                    assignments, user_email
+                )
+            else:
+                # Generate from study plan events
+                study_plan = {'tasks': events}
+                filepath = calendar_service.create_ics_from_study_plan(study_plan, user_email)
+            
+            # Read the file content
+            with open(filepath, 'r') as f:
+                ics_content = f.read()
+            
             return jsonify({
                 'success': True,
                 'format': 'ics',
                 'content': ics_content,
-                'filename': 'study_plan.ics'
+                'filename': os.path.basename(filepath)
             })
         elif format_type == 'csv':
             # Generate CSV format
@@ -1040,57 +1061,69 @@ def get_assignment_help():
     try:
         # Handle both form data (for file uploads) and JSON data
         uploaded_files = []
+        data = {}
 
         # Check for file uploads in form data
-        if 'files' in request.files:
-            files = request.files.getlist('files')
-            for file in files:
-                if file and file.filename:
-                    # Save uploaded file temporarily
-                    import tempfile
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            # Get form data
+            if 'data' in request.form:
+                import json as json_module
+                data = json_module.loads(request.form.get('data'))
+            
+            # Handle file uploads
+            if 'files' in request.files:
+                files = request.files.getlist('files')
+                for file in files:
+                    if file and file.filename:
+                        # Save uploaded file temporarily
+                        import tempfile
 
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
-                        file.save(temp_file.name)
-                        temp_file_path = temp_file.name
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
+                            file.save(temp_file.name)
+                            temp_file_path = temp_file.name
 
-                    try:
-                        # Initialize file upload service
-                        upload_service = CanvasFileUploadService(
-                            base_url=os.getenv('CANVAS_BASE_URL'),
-                            access_token=g.canvas_token
-                        )
+                        try:
+                            # Initialize file upload service
+                            upload_service = CanvasFileUploadService(
+                                base_url=os.getenv('CANVAS_BASE_URL'),
+                                access_token=g.canvas_token
+                            )
 
-                        # Upload to user's personal files for context
-                        file_info = upload_service.upload_file_to_user(
-                            file_path=temp_file_path,
-                            parent_folder_path="ai_context"
-                        )
+                            # Upload to user's personal files for context
+                            file_info = upload_service.upload_file_to_user(
+                                file_path=temp_file_path,
+                                parent_folder_path="ai_context"
+                            )
 
-                        uploaded_files.append({
-                            'id': file_info.get('id'),
-                            'display_name': file_info.get('display_name', file.filename),
-                            'filename': file_info.get('filename', file.filename),
-                            'size': file_info.get('size', 0),
-                            'content_type': file_info.get('content-type', 'application/octet-stream'),
-                            'url': file_info.get('url'),
-                            'description': f'Context file for AI assignment help: {file.filename}'
-                        })
+                            uploaded_files.append({
+                                'id': file_info.get('id'),
+                                'display_name': file_info.get('display_name', file.filename),
+                                'filename': file_info.get('filename', file.filename),
+                                'size': file_info.get('size', 0),
+                                'content_type': file_info.get('content-type', 'application/octet-stream'),
+                                'url': file_info.get('url'),
+                                'description': f'Context file for AI assignment help: {file.filename}'
+                            })
 
-                    finally:
-                        # Clean up temporary file
-                        import os as os_module
-                        os_module.unlink(temp_file_path)
-
-        # Get JSON data for assignment details
-        data = request.get_json() if request.is_json else {}
+                        finally:
+                            # Clean up temporary file
+                            import os as os_module
+                            os_module.unlink(temp_file_path)
+        else:
+            # Get JSON data for assignment details
+            data = request.get_json() or {}
+        
         assignment_id = data.get('assignment_id')
         course_id = data.get('course_id')
         question = data.get('question', '')
+        help_type = data.get('help_type', 'guidance')  # analysis, guidance, research, solution
 
         if not assignment_id:
+            logger.error(f"Missing assignment_id in request data: {data}")
             return jsonify({'error': 'Assignment ID is required'}), 400
 
         if not course_id:
+            logger.error(f"Missing course_id in request data: {data}")
             return jsonify({'error': 'Course ID is required'}), 400
 
         client = CanvasAPIClient(
@@ -1110,11 +1143,17 @@ def get_assignment_help():
             else:
                 return jsonify({'error': f'Cannot access assignment: {str(e)}'}), 403
 
+        # Get course details for context
+        try:
+            course_data = client.get_course(course_id)
+        except:
+            course_data = {}
+
         # Create assignment object
         assignment = Assignment(
             id=f"assignment_{assignment_data['id']}",
             canvas_assignment_id=str(assignment_data['id']),
-            course_id=str(assignment_data.get('course_id', '')),
+            course_id=str(assignment_data.get('course_id', course_id)),
             name=assignment_data.get('name', ''),
             description=assignment_data.get('description', ''),
             due_at=datetime.fromisoformat(assignment_data['due_at'].replace('Z', '+00:00')) if assignment_data.get('due_at') else None,
@@ -1125,13 +1164,56 @@ def get_assignment_help():
             status=AssignmentStatus.PUBLISHED
         )
 
-        # Get AI help with uploaded files as context
-        help_response = llm_service.generate_assignment_help(assignment, question, context_files=uploaded_files)
+        # Build context for prompt templates
+        from src.llm.prompt_templates import PromptContext, PromptTemplates
+        
+        prompt_context = PromptContext(
+            course_name=course_data.get('name'),
+            course_subject=course_data.get('course_code'),
+            assignment_type=', '.join(assignment.submission_types),
+            due_date=assignment.due_at.isoformat() if assignment.due_at else None,
+            points_possible=assignment.points_possible
+        )
+
+        # Customize prompt based on help type
+        help_type_descriptions = {
+            'analysis': "Provide a detailed analysis of the assignment requirements, breaking down what's being asked and what approach should be taken.",
+            'guidance': "Provide step-by-step guidance on how to approach this assignment, including strategies and tips.",
+            'research': "Conduct research and provide relevant information, examples, and sources to help with this assignment.",
+            'solution': "Help develop a complete solution or response for this assignment with detailed explanations."
+        }
+        
+        help_context = help_type_descriptions.get(help_type, help_type_descriptions['guidance'])
+        enhanced_question = f"{help_context}\n\nStudent Question: {question}"
+        
+        # Get context-aware prompt
+        prompt = PromptTemplates.get_assignment_help_prompt(
+            assignment.name,
+            assignment.description or "",
+            enhanced_question,
+            prompt_context
+        )
+
+        # Use appropriate AI service based on help type
+        if help_type in ['research', 'solution'] and llm_service.perplexity_adapter:
+            # Use Perplexity for research-based help with citations
+            response = llm_service.perplexity_adapter.search_facts(prompt, max_results=10)
+        elif llm_service.perplexity_adapter and help_type == 'analysis':
+            # Use Perplexity for analysis to include factual information
+            response = llm_service.perplexity_adapter.search_facts(prompt, max_results=5)
+        else:
+            # Use Groq for guidance and general help
+            messages = [
+                {"role": "system", "content": PromptTemplates.ACADEMIC_TUTOR},
+                {"role": "user", "content": prompt}
+            ]
+            response = llm_service.adapter._make_request(messages, temperature=0.5, max_tokens=1500)
 
         return jsonify({
             'assignment': assignment.to_dict(),
-            'help': help_response.content,
-            'model': help_response.model,
+            'help': response.content,
+            'model': response.model,
+            'sources': getattr(response, 'sources', None),
             'uploaded_files': uploaded_files
         })
 
@@ -1139,8 +1221,8 @@ def get_assignment_help():
         logger.error(f"Canvas API error: {e}")
         return jsonify({'error': str(e)}), 500
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Unexpected error in assignment-help: {e}", exc_info=True)
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 @app.route('/api/ai/study-plan', methods=['POST'])
 @require_auth
@@ -1224,16 +1306,48 @@ def explain_concept():
         concept = data.get('concept', '')
         context = data.get('context', '')
         level = data.get('level', 'undergraduate')  # undergraduate, graduate, beginner
+        course_id = data.get('course_id')  # Optional course context
         
         if not concept:
             return jsonify({'error': 'Concept is required'}), 400
         
-        explanation = llm_service.explain_concept(concept, context, level)
+        # Build course context if provided
+        from src.llm.prompt_templates import PromptContext, PromptTemplates
+        
+        course_context = PromptContext(student_level=level)
+        
+        if course_id:
+            try:
+                client = CanvasAPIClient(
+                    base_url=os.getenv('CANVAS_BASE_URL'),
+                    access_token=g.canvas_token
+                )
+                course_data = client.get_course(course_id)
+                course_context.course_name = course_data.get('name')
+                course_context.course_subject = course_data.get('course_code')
+            except:
+                pass
+        
+        # Get context-aware prompt
+        prompt = PromptTemplates.get_concept_explanation_prompt(
+            concept, context, level, course_context
+        )
+        
+        # Use Perplexity for fact-based explanations when available
+        if llm_service.perplexity_adapter:
+            response = llm_service.perplexity_adapter.search_facts(prompt, max_results=10)
+        else:
+            messages = [
+                {"role": "system", "content": PromptTemplates.ACADEMIC_TUTOR},
+                {"role": "user", "content": prompt}
+            ]
+            response = llm_service.adapter._make_request(messages, temperature=0.3, max_tokens=1200)
         
         return jsonify({
             'concept': concept,
-            'explanation': explanation.content,
-            'model': explanation.model,
+            'explanation': response.content,
+            'model': response.model,
+            'sources': getattr(response, 'sources', None),
             'level': level
         })
         
@@ -1303,6 +1417,191 @@ def ai_generate_feedback_draft():
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+# Quiz/Exam Endpoints
+@app.route('/api/courses/<course_id>/quizzes', methods=['GET'])
+@require_auth
+def get_course_quizzes(course_id: str):
+    """Get quizzes/exams for a course"""
+    try:
+        quiz_service = CanvasQuizService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        quizzes = quiz_service.get_course_quizzes(course_id)
+        
+        return jsonify({
+            'quizzes': quizzes,
+            'count': len(quizzes)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching quizzes: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/courses/<course_id>/quizzes/<quiz_id>', methods=['GET'])
+@require_auth
+def get_quiz_details(course_id: str, quiz_id: str):
+    """Get detailed quiz information"""
+    try:
+        quiz_service = CanvasQuizService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        quiz = quiz_service.get_quiz_details(course_id, quiz_id)
+        
+        if not quiz:
+            return jsonify({'error': 'Quiz not found'}), 404
+        
+        # Get questions if available
+        questions = quiz_service.get_quiz_questions(course_id, quiz_id)
+        quiz['questions'] = questions
+        quiz['question_count'] = len(questions)
+        
+        return jsonify({'quiz': quiz})
+        
+    except Exception as e:
+        logger.error(f"Error fetching quiz details: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/complete-assignment', methods=['POST'])
+@require_auth
+def ai_complete_assignment():
+    """Complete an assignment using AI with citations"""
+    try:
+        data = request.get_json()
+        course_id = data.get('course_id')
+        assignment_id = data.get('assignment_id')
+        additional_context = data.get('additional_context', '')
+        use_citations = data.get('use_citations', True)
+        generate_document = data.get('generate_document', False)
+        document_format = data.get('document_format', 'pdf')  # pdf, docx, latex
+        
+        if not assignment_id or not course_id:
+            return jsonify({'error': 'Assignment ID and Course ID are required'}), 400
+        
+        # Get assignment details
+        client = CanvasAPIClient(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        assignment_data = client.get_assignment(course_id, assignment_id)
+        
+        assignment = Assignment(
+            id=f"assignment_{assignment_data['id']}",
+            canvas_assignment_id=str(assignment_data['id']),
+            course_id=course_id,
+            name=assignment_data.get('name', ''),
+            description=assignment_data.get('description', ''),
+            due_at=assignment_data.get('due_at'),
+            points_possible=assignment_data.get('points_possible', 0),
+            grading_type=assignment_data.get('grading_type', 'points'),
+            submission_types=assignment_data.get('submission_types', []),
+            allowed_extensions=assignment_data.get('allowed_extensions', []),
+            status=AssignmentStatus.PUBLISHED
+        )
+        
+        # Complete assignment using AI
+        completion_service = AssignmentCompletionService(llm_service)
+        response = completion_service.complete_assignment(
+            assignment,
+            context_files=data.get('context_files', []),
+            additional_context=additional_context,
+            use_citations=use_citations
+        )
+        
+        result = {
+            'assignment': assignment.to_dict(),
+            'completion': response.content,
+            'model': response.model,
+            'sources': response.sources,
+            'metadata': response.metadata
+        }
+        
+        # Generate document if requested
+        if generate_document:
+            doc_service = DocumentGenerationService()
+            
+            if document_format == 'latex':
+                latex_doc = doc_service.generate_latex_document(
+                    response.content,
+                    assignment.name,
+                    "Student"
+                )
+                result['latex_document'] = latex_doc
+            elif document_format == 'pdf':
+                pdf_path = doc_service.generate_pdf_from_markdown(
+                    response.content,
+                    assignment.name,
+                    "Student"
+                )
+                if pdf_path:
+                    result['document_path'] = pdf_path
+            elif document_format == 'docx':
+                docx_path = doc_service.generate_docx(
+                    response.content,
+                    assignment.name,
+                    "Student"
+                )
+                if docx_path:
+                    result['document_path'] = docx_path
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error completing assignment: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/complete-quiz', methods=['POST'])
+@require_auth
+def ai_complete_quiz():
+    """Complete a quiz using AI"""
+    try:
+        data = request.get_json()
+        course_id = data.get('course_id')
+        quiz_id = data.get('quiz_id')
+        use_research = data.get('use_research', True)
+        
+        if not course_id or not quiz_id:
+            return jsonify({'error': 'Course ID and Quiz ID are required'}), 400
+        
+        quiz_service = CanvasQuizService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        # Get quiz details and questions
+        quiz = quiz_service.get_quiz_details(course_id, quiz_id)
+        if not quiz:
+            return jsonify({'error': 'Quiz not found'}), 404
+        
+        # Check if quiz can be taken
+        if not quiz_service.can_take_quiz(quiz):
+            return jsonify({'error': 'Quiz is locked or not available'}), 403
+        
+        questions = quiz_service.get_quiz_questions(course_id, quiz_id)
+        
+        # Complete quiz using AI
+        completion_service = AssignmentCompletionService(llm_service)
+        result = completion_service.complete_quiz(quiz, questions, use_research)
+        
+        return jsonify({
+            'quiz': quiz,
+            'completion': result,
+            'is_timed': quiz_service.is_quiz_timed(quiz),
+            'time_limit': quiz_service.get_quiz_time_limit(quiz)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error completing quiz: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 # Error handlers

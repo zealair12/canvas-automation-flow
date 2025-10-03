@@ -302,7 +302,8 @@ struct AIAssistantView: View {
                 .foregroundColor(.blue)
             }
             
-            MathFormattedText(aiResponse)
+            // Use MarkdownView for rich formatting with citations
+            MarkdownView(content: aiResponse, sources: nil)
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
@@ -326,16 +327,24 @@ struct AIAssistantView: View {
         isLoading = true
         aiResponse = ""
         
-        let response: String?
+        var response: String?
         
         switch selectedFeature {
         case .assignmentHelp:
-            response = await apiService.getAssignmentHelpWithFiles(
+            let helpResult = await apiService.getAssignmentHelpWithFiles(
                 assignmentId: selectedAssignment?.canvasAssignmentId ?? "",
                 courseId: selectedAssignment?.courseId ?? "",
                 question: inputText,
-                files: uploadedFiles
+                files: uploadedFiles,
+                helpType: "guidance"  // Default to guidance for AI Assistant
             )
+            if let result = helpResult {
+                response = result.content
+                // Sources will be displayed by MarkdownView if present
+                if let sources = result.sources {
+                    print("Received \(sources.count) sources for assignment help")
+                }
+            }
         case .studyPlan:
             let courseIds = selectedCourses.map { $0.canvasCourseId }
             response = await apiService.generateStudyPlan(

@@ -14,6 +14,7 @@ struct CoursesView: View {
     @State private var selectedCourses: Set<Course> = []
     @State private var studyPlanResponse = ""
     @State private var isLoadingStudyPlan = false
+    @State private var searchText = ""
     
     var body: some View {
         NavigationView {
@@ -56,41 +57,67 @@ struct CoursesView: View {
         .background(themeManager.backgroundColor)
     }
     
+    // Filtered courses by search text
+    private var filteredCoursesByTerm: [String: [Course]] {
+        if searchText.isEmpty {
+            return apiService.coursesByTerm
+        } else {
+            var filtered: [String: [Course]] = [:]
+            for (term, courses) in apiService.coursesByTerm {
+                let matchingCourses = courses.filter { course in
+                    course.name.localizedCaseInsensitiveContains(searchText) ||
+                    course.courseCode.localizedCaseInsensitiveContains(searchText)
+                }
+                if !matchingCourses.isEmpty {
+                    filtered[term] = matchingCourses
+                }
+            }
+            return filtered
+        }
+    }
+    
     private var coursesList: some View {
         ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(apiService.coursesByTerm.keys.sorted(), id: \.self) { term in
-                    VStack(alignment: .leading, spacing: 8) {
-                        // Term Header
-                        HStack {
-                            Text(term)
-                                .futuristicFont(.futuristicHeadline)
-                                .foregroundColor(themeManager.accentColor)
-                            
-                            Spacer()
-                            
-                            Text("\(apiService.coursesByTerm[term]?.count ?? 0) courses")
-                                .futuristicFont(.futuristicCaption)
-                                .foregroundColor(themeManager.secondaryTextColor)
-                        }
-                        .padding(.horizontal)
-                        
-                        // Courses in this term
-                        LazyVStack(spacing: 8) {
-                            ForEach(apiService.coursesByTerm[term] ?? []) { course in
-                                CourseRowView(course: course)
-                                    .futuristicCard()
-                                    .glowingBorder()
-                                    .onTapGesture {
-                                        // Navigate to course details
-                                        print("Tapped course: \(course.name)")
-                                    }
+            VStack(spacing: 12) {
+                // Search Bar
+                SearchBarView(text: $searchText, placeholder: "Search courses...")
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                
+                LazyVStack(spacing: 16) {
+                    ForEach(filteredCoursesByTerm.keys.sorted(), id: \.self) { term in
+                        VStack(alignment: .leading, spacing: 8) {
+                            // Term Header
+                            HStack {
+                                Text(term)
+                                    .futuristicFont(.futuristicHeadline)
+                                    .foregroundColor(themeManager.accentColor)
+                                
+                                Spacer()
+                                
+                                Text("\(filteredCoursesByTerm[term]?.count ?? 0) courses")
+                                    .futuristicFont(.futuristicCaption)
+                                    .foregroundColor(themeManager.secondaryTextColor)
                             }
+                            .padding(.horizontal)
+                            
+                            // Courses in this term
+                            LazyVStack(spacing: 8) {
+                                ForEach(filteredCoursesByTerm[term] ?? []) { course in
+                                    CourseRowView(course: course)
+                                        .futuristicCard()
+                                        .glowingBorder()
+                                        .onTapGesture {
+                                            // Navigate to course details
+                                            print("Tapped course: \(course.name)")
+                                        }
+                                }
+                            }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
                     }
                 }
-                
+                .padding(.horizontal)
             }
         }
         .background(themeManager.backgroundColor)

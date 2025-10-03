@@ -18,3 +18,14 @@ tqdm==4.67.1
 typing-inspection==0.4.1
 typing_extensions==4.15.0
 urllib3==2.5.0
+Flask==3.0.0
+Flask-CORS==4.0.0
+cryptography==41.0.7
+reportlab==4.0.9
+pypandoc==1.12
+python-docx==1.1.0
+icalendar==5.0.11
+Werkzeug==3.0.1
+Pillow==10.2.0
+lxml==5.1.0
+markdown==3.5.2
