@@ -683,20 +683,25 @@ class APIService: ObservableObject {
         }
     }
     
-    // MARK: - Course Detail Features
+    // MARK: - Course Detail Features (Direct Canvas API Calls)
     
     func getCourseFrontPage(courseId: String) async -> CoursePage? {
         guard let token = authToken else { return nil }
         
-        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/front_page") else { return nil }
+        // Call Canvas API through our backend proxy
+        guard let url = URL(string: "\(baseURL)/api/canvas/courses/\(courseId)/front_page") else { return nil }
         
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
-            let response = try JSONDecoder().decode(CoursePageResponse.self, from: data)
-            return response.page
+            
+            // Canvas returns the page directly, not wrapped
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let page = try decoder.decode(CoursePage.self, from: data)
+            return page
         } catch {
             print("Error fetching front page: \(error)")
             return nil
@@ -706,7 +711,8 @@ class APIService: ObservableObject {
     func getCourseSyllabus(courseId: String) async -> String? {
         guard let token = authToken else { return nil }
         
-        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/syllabus") else { return nil }
+        // Get course with syllabus_body included
+        guard let url = URL(string: "\(baseURL)/api/canvas/courses/\(courseId)?include[]=syllabus_body") else { return nil }
         
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -727,15 +733,20 @@ class APIService: ObservableObject {
     func getCourseAnnouncements(courseId: String) async -> [Announcement]? {
         guard let token = authToken else { return nil }
         
-        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/announcements") else { return nil }
+        // Canvas API: discussion topics with only_announcements=true
+        guard let url = URL(string: "\(baseURL)/api/canvas/courses/\(courseId)/discussion_topics?only_announcements=true") else { return nil }
         
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
-            let response = try JSONDecoder().decode(AnnouncementsResponse.self, from: data)
-            return response.announcements
+            
+            // Canvas returns array directly
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let announcements = try decoder.decode([Announcement].self, from: data)
+            return announcements
         } catch {
             print("Error fetching announcements: \(error)")
             return nil
@@ -745,15 +756,20 @@ class APIService: ObservableObject {
     func getCourseModules(courseId: String) async -> [CourseModule]? {
         guard let token = authToken else { return nil }
         
-        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/modules") else { return nil }
+        // Canvas API: get modules with items
+        guard let url = URL(string: "\(baseURL)/api/canvas/courses/\(courseId)/modules?include[]=items") else { return nil }
         
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
-            let response = try JSONDecoder().decode(ModulesResponse.self, from: data)
-            return response.modules
+            
+            // Canvas returns array directly
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let modules = try decoder.decode([CourseModule].self, from: data)
+            return modules
         } catch {
             print("Error fetching modules: \(error)")
             return nil
@@ -763,15 +779,20 @@ class APIService: ObservableObject {
     func getCourseDiscussions(courseId: String) async -> [Discussion]? {
         guard let token = authToken else { return nil }
         
-        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/discussions") else { return nil }
+        // Canvas API: discussion topics
+        guard let url = URL(string: "\(baseURL)/api/canvas/courses/\(courseId)/discussion_topics") else { return nil }
         
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
-            let response = try JSONDecoder().decode(DiscussionsResponse.self, from: data)
-            return response.discussions
+            
+            // Canvas returns array directly
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let discussions = try decoder.decode([Discussion].self, from: data)
+            return discussions
         } catch {
             print("Error fetching discussions: \(error)")
             return nil
@@ -781,19 +802,40 @@ class APIService: ObservableObject {
     func getCourseGrades(courseId: String) async -> CourseGrade? {
         guard let token = authToken else { return nil }
         
-        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/grades") else { return nil }
+        // Canvas API: get enrollments with grades
+        guard let url = URL(string: "\(baseURL)/api/canvas/courses/\(courseId)/enrollments?user_id=self&include[]=current_grading_period_scores") else { return nil }
         
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
-            let response = try JSONDecoder().decode(CourseGradeResponse.self, from: data)
-            return response.grade
+            
+            if let json = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+               let enrollment = json.first,
+               let grades = enrollment["grades"] as? [String: Any] {
+                
+                let currentScore = grades["current_score"] as? Double
+                let currentGrade = grades["current_grade"] as? String
+                let finalScore = grades["final_score"] as? Double
+                let finalGrade = grades["final_grade"] as? String
+                
+                // TODO: Fetch individual assignment grades
+                let assignmentGrades: [AssignmentGrade] = []
+                
+                return CourseGrade(
+                    currentScore: currentScore,
+                    currentGrade: currentGrade,
+                    finalScore: finalScore,
+                    finalGrade: finalGrade,
+                    assignmentGrades: assignmentGrades
+                )
+            }
         } catch {
             print("Error fetching grades: \(error)")
-            return nil
         }
+        
+        return nil
     }
 }
 

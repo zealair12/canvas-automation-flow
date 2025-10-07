@@ -5183,3 +5183,102 @@ TypeError: User.__init__() missing 1 required positional argument: 'canvas_user_
 2025-10-03 11:25:01,466 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:25:01] "GET /api/courses/16287/assignments HTTP/1.1" 200 -
 2025-10-03 11:25:02,152 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:25:02] "GET /api/courses/16263/assignments HTTP/1.1" 200 -
 2025-10-03 11:25:02,727 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:25:02] "GET /api/courses/16189/assignments HTTP/1.1" 200 -
+2025-10-03 11:42:16,424 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:16] "GET /api/user/profile HTTP/1.1" 200 -
+2025-10-03 11:42:16,425 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:16] "GET /api/user/profile HTTP/1.1" 200 -
+2025-10-03 11:42:16,446 - src.api.app - INFO - Starting get_user_courses
+2025-10-03 11:42:16,446 - src.api.app - INFO - Canvas client created successfully
+2025-10-03 11:42:17,123 - src.api.app - INFO - Retrieved 23 courses from Canvas
+2025-10-03 11:42:17,123 - src.api.app - INFO - Including course 14928 with generated name: Course 14928
+2025-10-03 11:42:17,123 - src.api.app - INFO - Successfully processed 23 courses across 4 terms
+2025-10-03 11:42:17,124 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:17] "GET /api/user/courses HTTP/1.1" 200 -
+2025-10-03 11:42:17,397 - src.api.app - ERROR - Canvas API error: API error 403: {"status":"unauthorized","errors":[{"message":"user not authorized to perform that action"}]}
+2025-10-03 11:42:17,398 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:17] "[35m[1mGET /api/courses/14928/assignments HTTP/1.1[0m" 500 -
+2025-10-03 11:42:17,906 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:17] "GET /api/courses/16288/assignments HTTP/1.1" 200 -
+2025-10-03 11:42:18,450 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:18] "GET /api/courses/16287/assignments HTTP/1.1" 200 -
+2025-10-03 11:42:19,046 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:19] "GET /api/courses/16263/assignments HTTP/1.1" 200 -
+2025-10-03 11:42:19,637 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:19] "GET /api/courses/16189/assignments HTTP/1.1" 200 -
+2025-10-03 11:42:20,307 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:20] "GET /api/courses/16202/assignments HTTP/1.1" 200 -
+2025-10-03 11:42:23,194 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:23] "[33mGET /api/courses/14842/front_page HTTP/1.1[0m" 404 -
+2025-10-03 11:42:27,832 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:27] "[33mGET /api/courses/14842/front_page HTTP/1.1[0m" 404 -
+2025-10-03 11:42:37,666 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 11:42:37] "[33mGET /api/courses/14930/front_page HTTP/1.1[0m" 404 -
+2025-10-03 13:10:38,989 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:10:38] "[33mGET /api/courses/14842/front_page HTTP/1.1[0m" 404 -
+2025-10-03 13:10:41,907 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:10:41] "[33mGET /api/courses/14842/front_page HTTP/1.1[0m" 404 -
+2025-10-03 13:10:53,786 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:10:53] "[33mGET /api/courses/14842/discussions HTTP/1.1[0m" 404 -
+2025-10-03 13:10:55,846 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:10:55] "[33mGET /api/courses/14842/grades HTTP/1.1[0m" 404 -
+2025-10-03 13:10:59,360 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:10:59] "[33mGET /api/courses/14842/front_page HTTP/1.1[0m" 404 -
+2025-10-03 13:11:33,470 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:11:33] "[31m[1mPOST /api/ai/assignment-help HTTP/1.1[0m" 400 -
+2025-10-03 13:11:46,827 - src.api.app - INFO - Starting get_user_courses
+2025-10-03 13:11:46,828 - src.api.app - INFO - Canvas client created successfully
+2025-10-03 13:11:48,199 - src.api.app - INFO - Retrieved 23 courses from Canvas
+2025-10-03 13:11:48,200 - src.api.app - INFO - Including course 14928 with generated name: Course 14928
+2025-10-03 13:11:48,200 - src.api.app - INFO - Successfully processed 23 courses across 4 terms
+2025-10-03 13:11:48,200 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:11:48] "GET /api/user/courses HTTP/1.1" 200 -
+2025-10-03 13:11:48,766 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:11:48] "GET /api/user/profile HTTP/1.1" 200 -
+2025-10-03 13:11:48,772 - src.api.app - INFO - Starting get_user_courses
+2025-10-03 13:11:48,773 - src.api.app - INFO - Canvas client created successfully
+2025-10-03 13:11:49,394 - src.api.app - INFO - Retrieved 23 courses from Canvas
+2025-10-03 13:11:49,394 - src.api.app - INFO - Including course 14928 with generated name: Course 14928
+2025-10-03 13:11:49,394 - src.api.app - INFO - Successfully processed 23 courses across 4 terms
+2025-10-03 13:11:49,396 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:11:49] "GET /api/user/courses HTTP/1.1" 200 -
+2025-10-03 13:11:49,764 - src.api.app - ERROR - Canvas API error: API error 403: {"status":"unauthorized","errors":[{"message":"user not authorized to perform that action"}]}
+2025-10-03 13:11:49,766 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:11:49] "[35m[1mGET /api/courses/14928/assignments HTTP/1.1[0m" 500 -
+2025-10-03 13:11:50,698 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:11:50] "GET /api/courses/16288/assignments HTTP/1.1" 200 -
+2025-10-03 13:11:51,497 - werkzeug - INFO - 127.0.0.1 - - [03/Oct/2025 13:11:51] "GET /api/courses/16287/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:30,777 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:30] "GET /api/user/profile HTTP/1.1" 200 -
+2025-10-07 16:17:30,780 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:30] "GET /api/user/profile HTTP/1.1" 200 -
+2025-10-07 16:17:30,801 - src.api.app - INFO - Starting get_user_courses
+2025-10-07 16:17:30,801 - src.api.app - INFO - Canvas client created successfully
+2025-10-07 16:17:32,725 - src.api.app - INFO - Retrieved 23 courses from Canvas
+2025-10-07 16:17:32,726 - src.api.app - INFO - Including course 14928 with generated name: Course 14928
+2025-10-07 16:17:32,726 - src.api.app - INFO - Successfully processed 23 courses across 4 terms
+2025-10-07 16:17:32,728 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:32] "GET /api/user/courses HTTP/1.1" 200 -
+2025-10-07 16:17:33,501 - src.api.app - ERROR - Canvas API error: API error 403: {"status":"unauthorized","errors":[{"message":"user not authorized to perform that action"}]}
+2025-10-07 16:17:33,504 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:33] "[35m[1mGET /api/courses/14928/assignments HTTP/1.1[0m" 500 -
+2025-10-07 16:17:34,731 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:34] "GET /api/courses/16288/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:35,841 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:35] "GET /api/courses/16287/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:37,033 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:37] "GET /api/courses/16263/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:38,388 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:38] "GET /api/courses/16189/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:39,530 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:39] "GET /api/courses/16202/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:41,150 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:41] "GET /api/courses/16319/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:42,379 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:42] "GET /api/courses/16031/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:43,415 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:43] "GET /api/courses/16282/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:44,271 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:44] "GET /api/courses/15562/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:45,552 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:45] "GET /api/courses/15432/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:46,882 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:46] "GET /api/courses/15411/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:48,625 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:48] "GET /api/courses/15498/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:49,645 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:49] "GET /api/courses/15591/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:50,427 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:50] "GET /api/courses/15496/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:51,235 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:51] "GET /api/courses/15494/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:52,453 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:52] "GET /api/courses/15787/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:54,050 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:54] "GET /api/courses/15645/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:55,017 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:55] "GET /api/courses/14842/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:57,181 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:57] "GET /api/courses/14930/assignments HTTP/1.1" 200 -
+2025-10-07 16:17:58,652 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:17:58] "GET /api/courses/15042/assignments HTTP/1.1" 200 -
+2025-10-07 16:18:00,193 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:18:00] "GET /api/courses/14841/assignments HTTP/1.1" 200 -
+2025-10-07 16:18:01,772 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:18:01] "GET /api/courses/15038/assignments HTTP/1.1" 200 -
+2025-10-07 16:18:01,780 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:18:01] "GET /api/reminders/upcoming HTTP/1.1" 200 -
+2025-10-07 16:18:02,955 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:18:02] "GET /api/user/profile HTTP/1.1" 200 -
+2025-10-07 16:18:02,964 - src.api.app - INFO - Starting get_user_courses
+2025-10-07 16:18:02,964 - src.api.app - INFO - Canvas client created successfully
+2025-10-07 16:18:03,851 - src.api.app - INFO - Retrieved 23 courses from Canvas
+2025-10-07 16:18:03,851 - src.api.app - INFO - Including course 14928 with generated name: Course 14928
+2025-10-07 16:18:03,851 - src.api.app - INFO - Successfully processed 23 courses across 4 terms
+2025-10-07 16:18:03,854 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:18:03] "GET /api/user/courses HTTP/1.1" 200 -
+2025-10-07 16:18:04,317 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:18:04] "[33mGET /api/canvas/courses/14842/front_page HTTP/1.1[0m" 404 -
+2025-10-07 16:18:04,461 - src.api.app - ERROR - Canvas API error: API error 403: {"status":"unauthorized","errors":[{"message":"user not authorized to perform that action"}]}
+2025-10-07 16:18:04,462 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:18:04] "[35m[1mGET /api/courses/14928/assignments HTTP/1.1[0m" 500 -
+2025-10-07 16:28:47,652 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 16:28:47] "[33mGET /api/canvas/courses/14842/front_page HTTP/1.1[0m" 404 -
+2025-10-07 17:07:54,782 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 17:07:54] "GET /api/user/profile HTTP/1.1" 200 -
+2025-10-07 17:07:54,791 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 17:07:54] "GET /api/user/profile HTTP/1.1" 200 -
+2025-10-07 17:07:54,809 - src.api.app - INFO - Starting get_user_courses
+2025-10-07 17:07:54,811 - src.api.app - INFO - Canvas client created successfully
+2025-10-07 17:07:55,802 - src.api.app - INFO - Retrieved 23 courses from Canvas
+2025-10-07 17:07:55,802 - src.api.app - INFO - Including course 14928 with generated name: Course 14928
+2025-10-07 17:07:55,802 - src.api.app - INFO - Successfully processed 23 courses across 4 terms
+2025-10-07 17:07:55,803 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 17:07:55] "GET /api/user/courses HTTP/1.1" 200 -
+2025-10-07 17:07:56,420 - src.api.app - ERROR - Canvas API error: API error 403: {"status":"unauthorized","errors":[{"message":"user not authorized to perform that action"}]}
+2025-10-07 17:07:56,420 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 17:07:56] "[35m[1mGET /api/courses/14928/assignments HTTP/1.1[0m" 500 -
+2025-10-07 17:07:57,395 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 17:07:57] "GET /api/courses/16288/assignments HTTP/1.1" 200 -
+2025-10-07 17:07:58,393 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 17:07:58] "GET /api/courses/16287/assignments HTTP/1.1" 200 -
+2025-10-07 17:07:59,433 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 17:07:59] "GET /api/courses/16263/assignments HTTP/1.1" 200 -
+2025-10-07 17:08:00,539 - werkzeug - INFO - 127.0.0.1 - - [07/Oct/2025 17:08:00] "GET /api/courses/16189/assignments HTTP/1.1" 200 -
