@@ -837,6 +837,194 @@ class APIService: ObservableObject {
         
         return nil
     }
+    
+    // MARK: - Quiz Operations
+    
+    func getCourseQuizzes(courseId: String) async -> [Quiz]? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/quizzes") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(QuizzesResponse.self, from: data)
+            return response.quizzes
+        } catch {
+            print("Error fetching course quizzes: \(error)")
+            return nil
+        }
+    }
+    
+    func getQuizDetails(courseId: String, quizId: String) async -> Quiz? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/quizzes/\(quizId)") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(QuizResponse.self, from: data)
+            return response.quiz
+        } catch {
+            print("Error fetching quiz details: \(error)")
+            return nil
+        }
+    }
+    
+    func startQuizAttempt(courseId: String, quizId: String) async -> QuizSubmission? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/quizzes/\(quizId)/start") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(QuizSubmissionResponse.self, from: data)
+            return response.submission
+        } catch {
+            print("Error starting quiz attempt: \(error)")
+            return nil
+        }
+    }
+    
+    func getQuizQuestions(submissionId: String) async -> [QuizQuestion]? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/quiz_submissions/\(submissionId)/questions") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(QuizQuestionsResponse.self, from: data)
+            return response.questions
+        } catch {
+            print("Error fetching quiz questions: \(error)")
+            return nil
+        }
+    }
+    
+    func answerQuizQuestion(submissionId: String, questionId: String, answer: Any, validationToken: String) async -> Bool {
+        guard let token = authToken else { return false }
+        
+        guard let url = URL(string: "\(baseURL)/api/quiz_submissions/\(submissionId)/answer") else { return false }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let payload: [String: Any] = [
+            "question_id": questionId,
+            "answer": answer,
+            "validation_token": validationToken
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (_, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                return httpResponse.statusCode == 200
+            }
+            return false
+        } catch {
+            print("Error answering quiz question: \(error)")
+            return false
+        }
+    }
+    
+    func completeQuiz(courseId: String, quizId: String, submissionId: String, validationToken: String) async -> Bool {
+        guard let token = authToken else { return false }
+        
+        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/quizzes/\(quizId)/submissions/\(submissionId)/complete") else { return false }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let payload: [String: Any] = [
+            "validation_token": validationToken
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (_, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                return httpResponse.statusCode == 200
+            }
+            return false
+        } catch {
+            print("Error completing quiz: \(error)")
+            return false
+        }
+    }
+    
+    func getQuizTimeRemaining(courseId: String, quizId: String, submissionId: String) async -> Int? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/courses/\(courseId)/quizzes/\(quizId)/submissions/\(submissionId)/time") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let timeLeft = json["time_left"] as? Int {
+                return timeLeft
+            }
+            return nil
+        } catch {
+            print("Error fetching time remaining: \(error)")
+            return nil
+        }
+    }
+    
+    func getQuizQuestionHelp(questionText: String, questionType: String, courseContext: String = "") async -> (content: String, sources: [[String: String]]?)? {
+        guard let token = authToken else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)/api/ai/quiz-question-help") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let payload: [String: Any] = [
+            "question_text": questionText,
+            "question_type": questionType,
+            "course_context": courseContext
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (data, _) = try await URLSession.shared.data(for: request)
+            
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let help = json["help"] as? String {
+                let sources = json["sources"] as? [[String: String]]
+                return (content: help, sources: sources)
+            }
+            return nil
+        } catch {
+            print("Error getting quiz question help: \(error)")
+            return nil
+        }
+    }
 }
 
 // MARK: - Data Models
@@ -1144,7 +1332,180 @@ struct AssignmentGrade: Codable {
     }
 }
 
+// MARK: - Quiz Models
+
+struct Quiz: Codable, Identifiable, Hashable {
+    let id: String
+    let canvasQuizId: String
+    let courseId: String
+    let title: String
+    let description: String?
+    let quizType: String
+    let timeLimit: Int?  // in minutes
+    let shuffleAnswers: Bool
+    let showCorrectAnswers: Bool
+    let scoringPolicy: String
+    let allowedAttempts: Int
+    let oneQuestionAtATime: Bool
+    let cantGoBack: Bool
+    let dueAt: String?
+    let lockAt: String?
+    let unlockAt: String?
+    let published: Bool
+    let pointsPossible: Double?
+    let questionCount: Int
+    let isTimed: Bool
+    let isAvailable: Bool
+    
+    enum CodingKeys: String, CodingKey {
+        case id, title, description, published
+        case canvasQuizId = "canvas_quiz_id"
+        case courseId = "course_id"
+        case quizType = "quiz_type"
+        case timeLimit = "time_limit"
+        case shuffleAnswers = "shuffle_answers"
+        case showCorrectAnswers = "show_correct_answers"
+        case scoringPolicy = "scoring_policy"
+        case allowedAttempts = "allowed_attempts"
+        case oneQuestionAtATime = "one_question_at_a_time"
+        case cantGoBack = "cant_go_back"
+        case dueAt = "due_at"
+        case lockAt = "lock_at"
+        case unlockAt = "unlock_at"
+        case pointsPossible = "points_possible"
+        case questionCount = "question_count"
+        case isTimed = "is_timed"
+        case isAvailable = "is_available"
+    }
+    
+    var formattedDueDate: String {
+        guard let dueAt = dueAt else { return "No due date" }
+        let formatter = ISO8601DateFormatter()
+        guard let date = formatter.date(from: dueAt) else { return dueAt }
+        
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateStyle = .medium
+        displayFormatter.timeStyle = .short
+        return displayFormatter.string(from: date)
+    }
+    
+    var timeLimitFormatted: String {
+        guard let limit = timeLimit else { return "No time limit" }
+        let hours = limit / 60
+        let minutes = limit % 60
+        
+        if hours > 0 && minutes > 0 {
+            return "\(hours)h \(minutes)m"
+        } else if hours > 0 {
+            return "\(hours) hour\(hours > 1 ? "s" : "")"
+        } else {
+            return "\(minutes) minute\(minutes > 1 ? "s" : "")"
+        }
+    }
+}
+
+struct QuizQuestion: Codable, Identifiable, Hashable {
+    let id: String
+    let canvasQuestionId: String
+    let quizId: String
+    let questionName: String
+    let questionText: String
+    let questionType: String
+    let position: Int
+    let pointsPossible: Double
+    let answers: [QuizAnswer]
+    let correctComments: String?
+    let incorrectComments: String?
+    let neutralComments: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, position, answers
+        case canvasQuestionId = "canvas_question_id"
+        case quizId = "quiz_id"
+        case questionName = "question_name"
+        case questionText = "question_text"
+        case questionType = "question_type"
+        case pointsPossible = "points_possible"
+        case correctComments = "correct_comments"
+        case incorrectComments = "incorrect_comments"
+        case neutralComments = "neutral_comments"
+    }
+}
+
+struct QuizAnswer: Codable, Hashable {
+    let id: String?
+    let text: String?
+    let html: String?
+    let weight: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, text, html, weight
+    }
+}
+
+struct QuizSubmission: Codable, Identifiable, Hashable {
+    let id: String
+    let canvasSubmissionId: String
+    let quizId: String
+    let userId: String
+    let attempt: Int
+    let workflowState: String
+    let startedAt: String?
+    let finishedAt: String?
+    let endAt: String?
+    let timeSpent: Int  // in seconds
+    let score: Double?
+    let keptScore: Double?
+    let hasSeenResults: Bool
+    let timeRemaining: Int?  // in seconds
+    let isInProgress: Bool
+    let validationToken: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, attempt, score
+        case canvasSubmissionId = "canvas_submission_id"
+        case quizId = "quiz_id"
+        case userId = "user_id"
+        case workflowState = "workflow_state"
+        case startedAt = "started_at"
+        case finishedAt = "finished_at"
+        case endAt = "end_at"
+        case timeSpent = "time_spent"
+        case keptScore = "kept_score"
+        case hasSeenResults = "has_seen_results"
+        case timeRemaining = "time_remaining"
+        case isInProgress = "is_in_progress"
+        case validationToken = "validation_token"
+    }
+    
+    var timeRemainingFormatted: String {
+        guard let remaining = timeRemaining else { return "No limit" }
+        let minutes = remaining / 60
+        let seconds = remaining % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+}
+
 // MARK: - Response Models
+
+struct QuizzesResponse: Codable {
+    let quizzes: [Quiz]
+    let count: Int?
+}
+
+struct QuizResponse: Codable {
+    let quiz: Quiz
+}
+
+struct QuizSubmissionResponse: Codable {
+    let submission: QuizSubmission
+    let quiz: Quiz?
+}
+
+struct QuizQuestionsResponse: Codable {
+    let questions: [QuizQuestion]
+    let count: Int?
+}
 
 struct CoursesResponse: Codable {
     let courses: [Course]

@@ -1433,7 +1433,7 @@ def get_course_quizzes(course_id: str):
         quizzes = quiz_service.get_course_quizzes(course_id)
         
         return jsonify({
-            'quizzes': quizzes,
+            'quizzes': [q.to_dict() for q in quizzes],
             'count': len(quizzes)
         })
         
@@ -1452,20 +1452,208 @@ def get_quiz_details(course_id: str, quiz_id: str):
             access_token=g.canvas_token
         )
         
-        quiz = quiz_service.get_quiz_details(course_id, quiz_id)
+        quiz = quiz_service.get_quiz(course_id, quiz_id)
         
         if not quiz:
             return jsonify({'error': 'Quiz not found'}), 404
         
-        # Get questions if available
-        questions = quiz_service.get_quiz_questions(course_id, quiz_id)
-        quiz['questions'] = questions
-        quiz['question_count'] = len(questions)
-        
-        return jsonify({'quiz': quiz})
+        return jsonify({'quiz': quiz.to_dict()})
         
     except Exception as e:
         logger.error(f"Error fetching quiz details: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/courses/<course_id>/quizzes/<quiz_id>/start', methods=['POST'])
+@require_auth
+def start_quiz_attempt(course_id: str, quiz_id: str):
+    """Start a new quiz attempt"""
+    try:
+        quiz_service = CanvasQuizService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        # Check if quiz exists and is available
+        quiz = quiz_service.get_quiz(course_id, quiz_id)
+        if not quiz:
+            return jsonify({'error': 'Quiz not found'}), 404
+        
+        if not quiz.is_available():
+            return jsonify({'error': 'Quiz is not available'}), 403
+        
+        # Start the attempt
+        submission_data = quiz_service.start_quiz_attempt(course_id, quiz_id)
+        
+        return jsonify({
+            'submission': submission_data,
+            'quiz': quiz.to_dict()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error starting quiz attempt: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/quiz_submissions/<submission_id>/questions', methods=['GET'])
+@require_auth
+def get_quiz_submission_questions(submission_id: str):
+    """Get questions for an active quiz submission"""
+    try:
+        quiz_service = CanvasQuizService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        questions = quiz_service.get_quiz_questions(submission_id)
+        
+        return jsonify({
+            'questions': [q.to_dict() for q in questions],
+            'count': len(questions)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching quiz questions: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/quiz_submissions/<submission_id>/answer', methods=['POST'])
+@require_auth
+def answer_quiz_question(submission_id: str):
+    """Submit an answer to a quiz question"""
+    try:
+        data = request.get_json()
+        question_id = data.get('question_id')
+        answer = data.get('answer')
+        validation_token = data.get('validation_token')
+        
+        if not question_id or answer is None or not validation_token:
+            return jsonify({'error': 'question_id, answer, and validation_token are required'}), 400
+        
+        quiz_service = CanvasQuizService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        success = quiz_service.answer_question(
+            submission_id,
+            question_id,
+            answer,
+            validation_token
+        )
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Answer submitted'})
+        else:
+            return jsonify({'error': 'Failed to submit answer'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error answering quiz question: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/courses/<course_id>/quizzes/<quiz_id>/submissions/<submission_id>/complete', methods=['POST'])
+@require_auth
+def complete_quiz(course_id: str, quiz_id: str, submission_id: str):
+    """Complete and submit a quiz"""
+    try:
+        data = request.get_json()
+        validation_token = data.get('validation_token')
+        
+        if not validation_token:
+            return jsonify({'error': 'validation_token is required'}), 400
+        
+        quiz_service = CanvasQuizService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        success = quiz_service.complete_quiz_submission(
+            course_id,
+            quiz_id,
+            submission_id,
+            validation_token
+        )
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Quiz completed'})
+        else:
+            return jsonify({'error': 'Failed to complete quiz'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error completing quiz: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/courses/<course_id>/quizzes/<quiz_id>/submissions/<submission_id>/time', methods=['GET'])
+@require_auth
+def get_quiz_time_remaining(course_id: str, quiz_id: str, submission_id: str):
+    """Get time remaining for a timed quiz"""
+    try:
+        quiz_service = CanvasQuizService(
+            base_url=os.getenv('CANVAS_BASE_URL'),
+            access_token=g.canvas_token
+        )
+        
+        time_data = quiz_service.get_submission_time_remaining(
+            course_id,
+            quiz_id,
+            submission_id
+        )
+        
+        if time_data:
+            return jsonify(time_data)
+        else:
+            return jsonify({'error': 'Could not fetch time data'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error fetching time remaining: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/quiz-question-help', methods=['POST'])
+@require_auth
+def ai_quiz_question_help():
+    """Get AI help for a quiz question during active attempt"""
+    try:
+        data = request.get_json()
+        question_text = data.get('question_text')
+        question_type = data.get('question_type')
+        answers = data.get('answers', [])
+        course_context = data.get('course_context', '')
+        
+        if not question_text:
+            return jsonify({'error': 'question_text is required'}), 400
+        
+        # Use Perplexity for research-based help
+        if llm_service and llm_service.perplexity_adapter:
+            prompt = f"""Help with this quiz question:
+
+Question: {question_text}
+
+Type: {question_type}
+
+{f'Course Context: {course_context}' if course_context else ''}
+
+Provide:
+1. Explanation of the concept
+2. Key information to consider
+3. Approach to solve
+
+Do NOT directly give the answer, but help understand the concept."""
+
+            response = llm_service.perplexity_adapter.search_facts(prompt, max_results=5)
+            
+            return jsonify({
+                'help': response.content,
+                'sources': response.sources,
+                'model': response.model
+            })
+        else:
+            return jsonify({'error': 'AI service not available'}), 503
+        
+    except Exception as e:
+        logger.error(f"Error providing quiz help: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -1559,49 +1747,6 @@ def ai_complete_assignment():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/ai/complete-quiz', methods=['POST'])
-@require_auth
-def ai_complete_quiz():
-    """Complete a quiz using AI"""
-    try:
-        data = request.get_json()
-        course_id = data.get('course_id')
-        quiz_id = data.get('quiz_id')
-        use_research = data.get('use_research', True)
-        
-        if not course_id or not quiz_id:
-            return jsonify({'error': 'Course ID and Quiz ID are required'}), 400
-        
-        quiz_service = CanvasQuizService(
-            base_url=os.getenv('CANVAS_BASE_URL'),
-            access_token=g.canvas_token
-        )
-        
-        # Get quiz details and questions
-        quiz = quiz_service.get_quiz_details(course_id, quiz_id)
-        if not quiz:
-            return jsonify({'error': 'Quiz not found'}), 404
-        
-        # Check if quiz can be taken
-        if not quiz_service.can_take_quiz(quiz):
-            return jsonify({'error': 'Quiz is locked or not available'}), 403
-        
-        questions = quiz_service.get_quiz_questions(course_id, quiz_id)
-        
-        # Complete quiz using AI
-        completion_service = AssignmentCompletionService(llm_service)
-        result = completion_service.complete_quiz(quiz, questions, use_research)
-        
-        return jsonify({
-            'quiz': quiz,
-            'completion': result,
-            'is_timed': quiz_service.is_quiz_timed(quiz),
-            'time_limit': quiz_service.get_quiz_time_limit(quiz)
-        })
-        
-    except Exception as e:
-        logger.error(f"Error completing quiz: {e}")
-        return jsonify({'error': str(e)}), 500
 
 
 # Error handlers

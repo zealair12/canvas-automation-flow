@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import WebKit
 
 struct CourseDetailView: View {
     let course: Course
@@ -82,14 +83,10 @@ struct CourseTabButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 2) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                Text(title)
-                    .font(.system(size: 9))
-            }
-            .frame(maxWidth: .infinity)
-            .foregroundColor(isSelected ? themeManager.accentColor : themeManager.secondaryTextColor)
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .frame(maxWidth: .infinity)
+                .foregroundColor(isSelected ? themeManager.accentColor : themeManager.secondaryTextColor)
         }
     }
 }
@@ -97,7 +94,10 @@ struct CourseTabButton: View {
 // MARK: - Course Home View
 struct CourseHomeView: View {
     let course: Course
+    @EnvironmentObject var apiService: APIService
     @EnvironmentObject var themeManager: ThemeManager
+    @State private var frontPage: CoursePage?
+    @State private var isLoading = true
     
     var body: some View {
         ScrollView {
@@ -117,21 +117,42 @@ struct CourseHomeView: View {
                 .futuristicCard()
                 .padding(.horizontal, 20)
                 
-                // Course Overview
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Course Overview")
-                        .futuristicFont(.futuristicHeadline)
-                        .foregroundColor(themeManager.accentColor)
-                    
-                    Text("Welcome to \(course.name). This course page provides access to all course materials, assignments, and resources.")
-                        .futuristicFont(.futuristicBody)
-                        .foregroundColor(themeManager.textColor)
-                        .fixedSize(horizontal: false, vertical: true)
+                // Front Page Content from Canvas
+                if isLoading {
+                    ProgressView("Loading course home page...")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                } else if let page = frontPage, let body = page.body {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(page.title)
+                            .futuristicFont(.futuristicHeadline)
+                            .foregroundColor(themeManager.accentColor)
+                        
+                        // Display Canvas HTML content
+                        HTMLContentView(htmlContent: body)
+                            .frame(minHeight: 300)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .futuristicCard()
+                    .padding(.horizontal, 20)
+                } else {
+                    // Fallback if no front page
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Course Overview")
+                            .futuristicFont(.futuristicHeadline)
+                            .foregroundColor(themeManager.accentColor)
+                        
+                        Text("Welcome to \(course.name). Use the tabs below to access course materials, assignments, and resources.")
+                            .futuristicFont(.futuristicBody)
+                            .foregroundColor(themeManager.textColor)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .futuristicCard()
+                    .padding(.horizontal, 20)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                .futuristicCard()
-                .padding(.horizontal, 20)
                 
                 // Quick Links
                 VStack(alignment: .leading, spacing: 12) {
@@ -152,6 +173,112 @@ struct CourseHomeView: View {
             .padding(.vertical)
         }
         .background(themeManager.backgroundColor)
+        .task {
+            await loadFrontPage()
+        }
+    }
+    
+    private func loadFrontPage() async {
+        isLoading = true
+        frontPage = await apiService.getCourseFrontPage(courseId: course.canvasCourseId)
+        isLoading = false
+    }
+}
+
+// MARK: - HTML Content View
+struct HTMLContentView: View {
+    let htmlContent: String
+    @State private var webViewHeight: CGFloat = 300
+    
+    var body: some View {
+        HTMLWebView(htmlContent: htmlContent, height: $webViewHeight)
+            .frame(height: webViewHeight)
+            .cornerRadius(8)
+    }
+}
+
+struct HTMLWebView: UIViewRepresentable {
+    let htmlContent: String
+    @Binding var height: CGFloat
+    
+    func makeUIView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
+        
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.navigationDelegate = context.coordinator
+        webView.scrollView.isScrollEnabled = true
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        return webView
+    }
+    
+    func updateUIView(_ webView: WKWebView, context: Context) {
+        let htmlString = """
+        <html>
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    font-size: 16px;
+                    line-height: 1.6;
+                    color: #F2F2F2;
+                    background-color: transparent;
+                    margin: 16px;
+                    padding: 0;
+                }
+                a { color: #BB86FC; text-decoration: none; }
+                img { max-width: 100%; height: auto; }
+                pre, code {
+                    background-color: #1F1F1F;
+                    padding: 8px;
+                    border-radius: 4px;
+                    font-family: 'SF Mono', Monaco, monospace;
+                }
+                blockquote {
+                    border-left: 3px solid #BB86FC;
+                    margin-left: 0;
+                    padding-left: 16px;
+                    opacity: 0.8;
+                }
+                h1, h2, h3 { color: #BB86FC; }
+                ul, ol { padding-left: 20px; }
+            </style>
+        </head>
+        <body>
+            \(htmlContent)
+        </body>
+        </html>
+        """
+        
+        webView.loadHTMLString(htmlString, baseURL: nil)
+        
+        // Calculate height
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            webView.evaluateJavaScript("document.body.scrollHeight") { result, error in
+                if let height = result as? CGFloat {
+                    self.height = max(height + 40, 300)
+                }
+            }
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+    
+    class Coordinator: NSObject, WKNavigationDelegate {
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            if navigationAction.navigationType == .linkActivated {
+                if let url = navigationAction.request.url {
+                    UIApplication.shared.open(url)
+                    decisionHandler(.cancel)
+                    return
+                }
+            }
+            decisionHandler(.allow)
+        }
     }
 }
 
