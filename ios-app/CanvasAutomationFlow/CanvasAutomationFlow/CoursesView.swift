@@ -33,6 +33,7 @@ struct CoursesView: View {
             .futuristicFont(.futuristicTitle)
             .foregroundColor(themeManager.textColor)
             .background(themeManager.backgroundColor)
+            .toolbarVisibility(.visible, for: .tabBar) // Ensure tab bar is visible
             .refreshable {
                 await apiService.fetchCourses()
             }

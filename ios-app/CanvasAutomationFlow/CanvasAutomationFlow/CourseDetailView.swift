@@ -69,7 +69,7 @@ struct CourseDetailView: View {
         .navigationTitle(course.name)
         .navigationBarTitleDisplayMode(.inline)
         .background(themeManager.backgroundColor)
-        .toolbar(.hidden, for: .tabBar) // Hide the main dock
+        .toolbarVisibility(.hidden, for: .tabBar) // Hide the main dock when in course view
     }
 }
 
