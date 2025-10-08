@@ -49,19 +49,12 @@ struct ContentView: View {
                 }
                 .tag(4)
             
-            // Reminders Tab
-            RemindersView()
-                .tabItem {
-                    Image(systemName: "bell.badge.fill")
-                }
-                .tag(5)
-            
-            // Settings Tab
+            // Settings Tab (More)
             SettingsView()
                 .tabItem {
                     Image(systemName: "ellipsis.circle.fill")
                 }
-                .tag(6)
+                .tag(5)
         }
         .environmentObject(apiService)
         .background(themeManager.backgroundColor)

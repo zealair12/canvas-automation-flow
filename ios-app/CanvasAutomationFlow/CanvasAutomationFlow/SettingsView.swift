@@ -67,6 +67,7 @@ struct SettingsView: View {
             HStack {
                 Image(systemName: "bell.fill")
                     .foregroundColor(.blue)
+                    .frame(width: 20)
                 Text("Push Notifications")
                 Spacer()
                 Toggle("", isOn: .constant(true))
@@ -75,6 +76,7 @@ struct SettingsView: View {
             HStack {
                 Image(systemName: "envelope.fill")
                     .foregroundColor(.green)
+                    .frame(width: 20)
                 Text("Email Notifications")
                 Spacer()
                 Toggle("", isOn: .constant(false))
@@ -83,6 +85,7 @@ struct SettingsView: View {
             HStack {
                 Image(systemName: "message.fill")
                     .foregroundColor(.purple)
+                    .frame(width: 20)
                 Text("SMS Notifications")
                 Spacer()
                 Toggle("", isOn: .constant(false))
@@ -95,6 +98,7 @@ struct SettingsView: View {
             HStack {
                 Image(systemName: "info.circle.fill")
                     .foregroundColor(.blue)
+                    .frame(width: 20)
                 Text("Version")
                 Spacer()
                 Text("1.0.0")
@@ -104,6 +108,7 @@ struct SettingsView: View {
             HStack {
                 Image(systemName: "questionmark.circle.fill")
                     .foregroundColor(.orange)
+                    .frame(width: 20)
                 Text("Help & Support")
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -114,6 +119,7 @@ struct SettingsView: View {
             HStack {
                 Image(systemName: "doc.text.fill")
                     .foregroundColor(.green)
+                    .frame(width: 20)
                 Text("Privacy Policy")
                 Spacer()
                 Image(systemName: "chevron.right")
