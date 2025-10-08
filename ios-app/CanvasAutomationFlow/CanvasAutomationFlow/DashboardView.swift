@@ -125,9 +125,7 @@ struct DashboardView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Logout") {
-                    apiService.signOut()
-                }
+                UserAvatarButton(apiService: apiService)
             }
         }
         .task {
