@@ -51,7 +51,7 @@ struct ContentView: View {
                 .tag(4)
             
             // More Tab (Modal)
-            EmptyView()
+            MoreTabView()
                 .tabItem {
                     Image(systemName: "ellipsis.circle.fill")
                 }
@@ -69,6 +69,18 @@ struct ContentView: View {
         .sheet(isPresented: $showingMoreModal) {
             MoreOptionsModal(apiService: apiService)
         }
+    }
+}
+
+struct MoreTabView: View {
+    var body: some View {
+        VStack {
+            Spacer()
+            Text("Tap to open More Options")
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .background(Color.clear)
     }
 }
 
