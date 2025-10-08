@@ -60,7 +60,7 @@ struct ContentView: View {
         .environmentObject(apiService)
         .background(themeManager.backgroundColor)
         .accentColor(themeManager.accentColor)
-        .onChange(of: selectedTab) { newValue in
+        .onChange(of: selectedTab) { _, newValue in
             if newValue == 5 {
                 showingMoreModal = true
                 selectedTab = 0 // Reset to dashboard
