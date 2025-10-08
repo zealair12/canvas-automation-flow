@@ -53,10 +53,10 @@ struct ContentView: View {
         .environmentObject(apiService)
         .background(themeManager.backgroundColor)
         .accentColor(themeManager.accentColor)
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .topLeading) {
             UserAvatarButton(apiService: apiService)
                 .padding(.top, 10)
-                .padding(.trailing, 20)
+                .padding(.leading, 20)
         }
     }
 }
