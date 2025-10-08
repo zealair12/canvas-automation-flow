@@ -5635,3 +5635,38 @@ TypeError: User.__init__() missing 1 required positional argument: 'canvas_user_
 2025-10-08 11:11:37,630 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:11:37] "GET /api/courses/14841/assignments HTTP/1.1" 200 -
 2025-10-08 11:11:38,972 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:11:38] "GET /api/courses/15038/assignments HTTP/1.1" 200 -
 2025-10-08 11:11:38,979 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:11:38] "GET /api/reminders/upcoming HTTP/1.1" 200 -
+2025-10-08 11:13:15,565 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:13:15] "GET /api/user/profile HTTP/1.1" 200 -
+2025-10-08 11:13:15,585 - src.api.app - INFO - Starting get_user_courses
+2025-10-08 11:13:15,586 - src.api.app - INFO - Canvas client created successfully
+2025-10-08 11:13:15,637 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:13:15] "GET /api/user/profile HTTP/1.1" 200 -
+2025-10-08 11:13:16,532 - src.api.app - INFO - Retrieved 23 courses from Canvas
+2025-10-08 11:13:16,533 - src.api.app - INFO - Including course 14928 with generated name: Course 14928
+2025-10-08 11:13:16,534 - src.api.app - INFO - Successfully processed 23 courses across 4 terms
+2025-10-08 11:13:16,535 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:13:16] "GET /api/user/courses HTTP/1.1" 200 -
+2025-10-08 11:13:17,216 - src.api.app - ERROR - Canvas API error: API error 403: {"status":"unauthorized","errors":[{"message":"user not authorized to perform that action"}]}
+2025-10-08 11:13:17,218 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:13:17] "[35m[1mGET /api/courses/14928/assignments HTTP/1.1[0m" 500 -
+2025-10-08 11:13:18,213 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:13:18] "GET /api/courses/16288/assignments HTTP/1.1" 200 -
+2025-10-08 11:13:20,689 - src.api.app - INFO - Starting get_user_courses
+2025-10-08 11:13:20,690 - src.api.app - INFO - Canvas client created successfully
+2025-10-08 11:13:21,653 - src.api.app - INFO - Retrieved 23 courses from Canvas
+2025-10-08 11:13:21,654 - src.api.app - INFO - Including course 14928 with generated name: Course 14928
+2025-10-08 11:13:21,654 - src.api.app - INFO - Successfully processed 23 courses across 4 terms
+2025-10-08 11:13:21,655 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:13:21] "GET /api/user/courses HTTP/1.1" 200 -
+2025-10-08 11:13:22,393 - src.api.app - ERROR - Canvas API error: API error 403: {"status":"unauthorized","errors":[{"message":"user not authorized to perform that action"}]}
+2025-10-08 11:13:22,395 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:13:22] "[35m[1mGET /api/courses/14928/assignments HTTP/1.1[0m" 500 -
+2025-10-08 11:13:33,846 - src.api.app - INFO - Starting get_user_courses
+2025-10-08 11:13:33,847 - src.api.app - INFO - Canvas client created successfully
+2025-10-08 11:13:34,702 - src.api.app - INFO - Retrieved 23 courses from Canvas
+2025-10-08 11:13:34,703 - src.api.app - INFO - Including course 14928 with generated name: Course 14928
+2025-10-08 11:13:34,703 - src.api.app - INFO - Successfully processed 23 courses across 4 terms
+2025-10-08 11:13:34,705 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:13:34] "GET /api/user/courses HTTP/1.1" 200 -
+2025-10-08 11:13:35,379 - src.api.app - ERROR - Canvas API error: API error 403: {"status":"unauthorized","errors":[{"message":"user not authorized to perform that action"}]}
+2025-10-08 11:13:35,380 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:13:35] "[35m[1mGET /api/courses/14928/assignments HTTP/1.1[0m" 500 -
+2025-10-08 11:13:43,420 - src.api.app - INFO - Starting get_user_courses
+2025-10-08 11:13:43,421 - src.api.app - INFO - Canvas client created successfully
+2025-10-08 11:13:44,457 - src.api.app - INFO - Retrieved 23 courses from Canvas
+2025-10-08 11:13:44,457 - src.api.app - INFO - Including course 14928 with generated name: Course 14928
+2025-10-08 11:13:44,457 - src.api.app - INFO - Successfully processed 23 courses across 4 terms
+2025-10-08 11:13:44,458 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:13:44] "GET /api/user/courses HTTP/1.1" 200 -
+2025-10-08 11:13:45,211 - src.api.app - ERROR - Canvas API error: API error 403: {"status":"unauthorized","errors":[{"message":"user not authorized to perform that action"}]}
+2025-10-08 11:13:45,213 - werkzeug - INFO - 127.0.0.1 - - [08/Oct/2025 11:13:45] "[35m[1mGET /api/courses/14928/assignments HTTP/1.1[0m" 500 -
