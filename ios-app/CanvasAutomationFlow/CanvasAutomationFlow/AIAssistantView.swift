@@ -331,9 +331,23 @@ struct AIAssistantView: View {
         
         switch selectedFeature {
         case .assignmentHelp:
+            // Validate assignment is selected
+            guard let assignment = selectedAssignment else {
+                aiResponse = "Please select an assignment first."
+                isLoading = false
+                return
+            }
+            
+            // Validate question is not empty
+            guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                aiResponse = "Please enter your question."
+                isLoading = false
+                return
+            }
+            
             let helpResult = await apiService.getAssignmentHelpWithFiles(
-                assignmentId: selectedAssignment?.canvasAssignmentId ?? "",
-                courseId: selectedAssignment?.courseId ?? "",
+                assignmentId: assignment.canvasAssignmentId,
+                courseId: assignment.courseId,
                 question: inputText,
                 files: uploadedFiles,
                 helpType: "guidance"  // Default to guidance for AI Assistant
@@ -346,26 +360,53 @@ struct AIAssistantView: View {
                 }
             }
         case .studyPlan:
+            guard !selectedCourses.isEmpty else {
+                aiResponse = "Please select at least one course."
+                isLoading = false
+                return
+            }
+            
             let courseIds = selectedCourses.map { $0.canvasCourseId }
             response = await apiService.generateStudyPlan(
                 courseIds: courseIds,
                 daysAhead: Int(inputText) ?? 7
             )
         case .conceptExplainer:
+            guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                aiResponse = "Please enter a concept to explain."
+                isLoading = false
+                return
+            }
+            
             response = await apiService.explainConcept(
                 concept: inputText,
                 context: contextText,
                 level: selectedLevel
             )
         case .feedbackDraft:
+            guard let assignment = selectedAssignment else {
+                aiResponse = "Please select an assignment first."
+                isLoading = false
+                return
+            }
+            
+            guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                aiResponse = "Please enter the submission content."
+                isLoading = false
+                return
+            }
+            
             response = await apiService.generateFeedbackDraft(
-                assignmentId: selectedAssignment?.canvasAssignmentId ?? "",
+                assignmentId: assignment.canvasAssignmentId,
                 submissionContent: inputText,
                 feedbackType: selectedFeedbackType
             )
         }
         
-        aiResponse = response ?? "Sorry, I couldn't generate a response. Please try again."
+        // Only set fallback error if we don't already have a specific error message
+        if aiResponse.isEmpty {
+            aiResponse = response ?? "Sorry, I couldn't generate a response. Please try again."
+        }
         isLoading = false
     }
     

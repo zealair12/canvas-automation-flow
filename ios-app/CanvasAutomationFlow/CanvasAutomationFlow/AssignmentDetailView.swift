@@ -89,20 +89,24 @@ struct AssignmentDetailView: View {
                     
                     // File upload functionality moved to AI Assignment Help
                     
-                    // Action Buttons - Centered and Full Width
+                    // Action Buttons - Side by Side
                     VStack(spacing: 16) {
-                        FuturisticButton(title: "AI Help & Analysis") {
-                            showingAIHelp = true
-                        }
-                        .frame(maxWidth: .infinity)
-                        
-                        if assignment.submissionTypes.contains("online_upload") {
-                            FuturisticButton(title: "Submit Files") {
-                                showingSubmission = true
+                        // AI Help & Submit Files - Side by Side
+                        HStack(spacing: 12) {
+                            FuturisticButton(title: "AI Help & Analysis") {
+                                showingAIHelp = true
                             }
                             .frame(maxWidth: .infinity)
+                            
+                            if assignment.submissionTypes.contains("online_upload") {
+                                FuturisticButton(title: "Submit Files") {
+                                    showingSubmission = true
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
                         }
                         
+                        // Submit Text - Full Width (if available)
                         if assignment.submissionTypes.contains("online_text_entry") {
                             FuturisticButton(title: "Submit Text") {
                                 showingTextSubmission = true
@@ -368,6 +372,12 @@ struct AssignmentAIHelpView: View {
     }
     
     private func getAIHelp() async {
+        // Validate question is not empty
+        guard !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            response = "Please enter your question first."
+            return
+        }
+        
         isLoading = true
         response = ""
         
@@ -376,6 +386,12 @@ struct AssignmentAIHelpView: View {
         
         // Map help type to API parameter
         let helpTypeParam = selectedHelpType.rawValue.lowercased()
+        
+        print("🔍 Getting AI help for assignment: \(assignment.canvasAssignmentId)")
+        print("📋 Course: \(assignment.courseId)")
+        print("❓ Question: \(fullQuestion)")
+        print("🎯 Help Type: \(helpTypeParam)")
+        print("📎 Context Files: \(contextFiles.count)")
         
         let helpResponse = await apiService.getAssignmentHelpWithFiles(
             assignmentId: assignment.canvasAssignmentId,
@@ -386,14 +402,16 @@ struct AssignmentAIHelpView: View {
         )
         
         if let result = helpResponse {
+            print("✅ Received AI response")
             response = result.content
             // Store sources for citation display
             if let sources = result.sources {
                 // Sources will be handled by MarkdownView
-                print("Received \(sources.count) sources")
+                print("📚 Received \(sources.count) sources")
             }
         } else {
-            response = "Sorry, I couldn't get help for this assignment. Please try again."
+            print("❌ Failed to get AI response")
+            response = "Unable to get AI help. Please check:\n• Network connection\n• Assignment: \(assignment.name)\n• Course ID: \(assignment.courseId)\n• Backend server is running\n• LLM service is configured\n\nTry again or check logs."
         }
         
         isLoading = false

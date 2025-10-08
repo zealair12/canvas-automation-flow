@@ -400,8 +400,17 @@ struct AIHelpSheet: View {
     private func getAIHelp() async {
         guard let assignment = assignment else { return }
         
+        // Validate question is not empty
+        guard !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            response = "Please enter your question first."
+            return
+        }
+        
         isLoading = true
         response = ""
+        
+        print("🔍 Getting AI help for assignment: \(assignment.canvasAssignmentId) in course: \(assignment.courseId)")
+        print("📝 Question: \(question)")
         
         let helpResult = await apiService.getAssignmentHelp(
             assignmentId: assignment.canvasAssignmentId,
@@ -411,9 +420,11 @@ struct AIHelpSheet: View {
         )
         
         if let result = helpResult {
+            print("✅ Received AI response")
             response = result.content
         } else {
-            response = "Sorry, I couldn't get help for this assignment. Please try again."
+            print("❌ Failed to get AI response")
+            response = "Unable to get AI help. Please check:\n• Network connection\n• Assignment exists in Canvas\n• Backend server is running\n\nTry again or contact support."
         }
         
         isLoading = false
