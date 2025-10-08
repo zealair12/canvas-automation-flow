@@ -49,42 +49,80 @@ struct ContentView: View {
                     Image(systemName: "wand.and.stars")
                 }
                 .tag(4)
-            
-            // More Tab (Modal)
-            MoreTabView()
-                .tabItem {
-                    Image(systemName: "ellipsis.circle.fill")
-                }
-                .tag(5)
         }
         .environmentObject(apiService)
         .background(themeManager.backgroundColor)
         .accentColor(themeManager.accentColor)
-        .onChange(of: selectedTab) { _, newValue in
-            if newValue == 5 {
-                showingMoreModal = true
-                selectedTab = 0 // Reset to dashboard
+        .overlay(alignment: .topTrailing) {
+            UserAvatarButton(apiService: apiService)
+                .padding(.top, 10)
+                .padding(.trailing, 20)
+        }
+    }
+}
+
+struct UserAvatarButton: View {
+    let apiService: APIService
+    @EnvironmentObject var themeManager: ThemeManager
+    @State private var showingSettingsModal = false
+    
+    var body: some View {
+        Button(action: {
+            showingSettingsModal = true
+        }) {
+            if let user = apiService.user {
+                UserAvatarView(user: user)
+            } else {
+                Image(systemName: "person.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.gray)
             }
         }
-        .sheet(isPresented: $showingMoreModal) {
-            MoreOptionsModal(apiService: apiService)
+        .sheet(isPresented: $showingSettingsModal) {
+            SettingsModal(apiService: apiService)
         }
     }
 }
 
-struct MoreTabView: View {
+struct UserAvatarView: View {
+    let user: User
+    @EnvironmentObject var themeManager: ThemeManager
+    
     var body: some View {
-        VStack {
-            Spacer()
-            Text("Tap to open More Options")
-                .foregroundColor(.secondary)
-            Spacer()
+        Text(userInitials)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(width: 40, height: 40)
+            .background(userColor)
+            .clipShape(Circle())
+            .overlay(
+                Circle()
+                    .stroke(themeManager.accentColor.opacity(0.3), lineWidth: 2)
+            )
+    }
+    
+    private var userInitials: String {
+        let names = user.name.split(separator: " ")
+        if names.count >= 2 {
+            return String(names[0].prefix(1) + names[1].prefix(1)).uppercased()
+        } else if names.count == 1 {
+            return String(names[0].prefix(2)).uppercased()
         }
-        .background(Color.clear)
+        return "U"
+    }
+    
+    private var userColor: Color {
+        // Generate consistent color based on user name hash
+        let hash = user.name.hash
+        let colors: [Color] = [
+            .blue, .green, .orange, .purple, .red, .pink, .teal, .indigo, .mint, .cyan
+        ]
+        let index = abs(hash) % colors.count
+        return colors[index]
     }
 }
 
-struct MoreOptionsModal: View {
+struct SettingsModal: View {
     let apiService: APIService
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var themeManager: ThemeManager
@@ -93,56 +131,50 @@ struct MoreOptionsModal: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                // Header
-                VStack(spacing: 8) {
-                    Image(systemName: "ellipsis.circle.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(themeManager.accentColor)
-                    
-                    Text("More Options")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(themeManager.textColor)
+                // User Info Header
+                if let user = apiService.user {
+                    VStack(spacing: 12) {
+                        UserAvatarView(user: user)
+                            .scaleEffect(1.5)
+                        
+                        VStack(spacing: 4) {
+                            Text(user.name)
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(themeManager.textColor)
+                            
+                            Text(user.email)
+                                .font(.subheadline)
+                                .foregroundColor(themeManager.secondaryTextColor)
+                        }
+                    }
+                    .padding(.top, 20)
                 }
-                .padding(.top, 20)
                 
-                // Options Grid
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 16) {
-                    // Notifications
-                    MoreOptionButton(
+                // Settings Options
+                VStack(spacing: 12) {
+                    SettingsOptionRow(
                         icon: "bell.fill",
                         title: "Notifications",
                         color: .blue,
-                        action: {
-                            // Handle notifications
-                        }
+                        action: {}
                     )
                     
-                    // Help & Support
-                    MoreOptionButton(
+                    SettingsOptionRow(
                         icon: "questionmark.circle.fill",
                         title: "Help & Support",
                         color: .orange,
-                        action: {
-                            // Handle help
-                        }
+                        action: {}
                     )
                     
-                    // Privacy Policy
-                    MoreOptionButton(
+                    SettingsOptionRow(
                         icon: "doc.text.fill",
                         title: "Privacy Policy",
                         color: .green,
-                        action: {
-                            // Handle privacy
-                        }
+                        action: {}
                     )
                     
-                    // Sign Out
-                    MoreOptionButton(
+                    SettingsOptionRow(
                         icon: "rectangle.portrait.and.arrow.right",
                         title: "Sign Out",
                         color: .red,
@@ -154,33 +186,6 @@ struct MoreOptionsModal: View {
                 .padding(.horizontal, 20)
                 
                 Spacer()
-                
-                // User Info (if authenticated)
-                if apiService.isAuthenticated, let user = apiService.user {
-                    VStack(spacing: 8) {
-                        HStack {
-                            Image(systemName: "person.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.blue)
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(user.name)
-                                    .font(.headline)
-                                    .foregroundColor(themeManager.textColor)
-                                Text(user.email)
-                                    .font(.caption)
-                                    .foregroundColor(themeManager.secondaryTextColor)
-                            }
-                            
-                            Spacer()
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(themeManager.surfaceColor)
-                        .cornerRadius(12)
-                        .padding(.horizontal, 20)
-                    }
-                }
             }
             .background(themeManager.backgroundColor)
             .navigationBarTitleDisplayMode(.inline)
@@ -205,7 +210,7 @@ struct MoreOptionsModal: View {
     }
 }
 
-struct MoreOptionButton: View {
+struct SettingsOptionRow: View {
     let icon: String
     let title: String
     let color: Color
@@ -214,25 +219,26 @@ struct MoreOptionButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 12) {
+            HStack(spacing: 16) {
                 Image(systemName: icon)
-                    .font(.system(size: 30))
+                    .font(.title3)
                     .foregroundColor(color)
+                    .frame(width: 24)
                 
                 Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.body)
                     .foregroundColor(themeManager.textColor)
-                    .multilineTextAlignment(.center)
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(themeManager.secondaryTextColor)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 100)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
             .background(themeManager.surfaceColor)
             .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(color.opacity(0.3), lineWidth: 1)
-            )
         }
         .buttonStyle(PlainButtonStyle())
     }
