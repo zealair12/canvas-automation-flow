@@ -10,6 +10,7 @@ import WebKit
 
 struct AssignmentDetailView: View {
     let assignment: Assignment
+    var course: Course? = nil  // Optional course parameter for context
     @EnvironmentObject var apiService: APIService
     @EnvironmentObject var themeManager: ThemeManager
     @State private var showingAIHelp = false
@@ -21,10 +22,39 @@ struct AssignmentDetailView: View {
     @State private var showingTextSubmission = false
     @Environment(\.dismiss) var dismiss
     
+    // Find course if not provided
+    private var assignmentCourse: Course? {
+        course ?? apiService.courses.first { $0.canvasCourseId == assignment.courseId }
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    // Course Context Breadcrumb
+                    if let courseContext = assignmentCourse {
+                        NavigationLink(destination: CourseDetailView(course: courseContext)) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 14))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Back to Course")
+                                        .font(.caption)
+                                        .foregroundColor(themeManager.secondaryTextColor)
+                                    Text(courseContext.name)
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(themeManager.accentColor)
+                                }
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 12)
+                            .background(themeManager.surfaceColor)
+                            .cornerRadius(8)
+                        }
+                        .padding(.horizontal)
+                    }
+                    
                     // Assignment Header
                     VStack(alignment: .leading, spacing: 12) {
                         Text(assignment.name)

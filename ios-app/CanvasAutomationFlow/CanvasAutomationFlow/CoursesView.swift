@@ -186,6 +186,19 @@ struct CoursesView: View {
 struct CourseRowView: View {
     let course: Course
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var apiService: APIService
+    
+    // Assignment statistics for this course
+    private var courseAssignments: [Assignment] {
+        apiService.assignments.filter { $0.courseId == course.canvasCourseId }
+    }
+    
+    private var assignmentStats: (total: Int, overdue: Int, dueSoon: Int) {
+        let total = courseAssignments.count
+        let overdue = courseAssignments.filter { $0.isOverdue }.count
+        let dueSoon = courseAssignments.filter { $0.isDueSoon && !$0.isOverdue }.count
+        return (total, overdue, dueSoon)
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -211,6 +224,56 @@ struct CourseRowView: View {
                     .font(.caption)
                     .foregroundColor(themeManager.secondaryTextColor)
                     .lineLimit(3)
+            }
+            
+            // Assignment Statistics Row
+            if assignmentStats.total > 0 {
+                HStack(spacing: 12) {
+                    // Total Assignments
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.doc.fill")
+                            .font(.system(size: 11))
+                        Text("\(assignmentStats.total)")
+                            .font(.caption)
+                    }
+                    .foregroundColor(themeManager.secondaryTextColor)
+                    
+                    // Overdue Assignments
+                    if assignmentStats.overdue > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.system(size: 11))
+                            Text("\(assignmentStats.overdue) overdue")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule()
+                                .fill(Color.red.opacity(0.2))
+                        )
+                    }
+                    
+                    // Due Soon Assignments
+                    if assignmentStats.dueSoon > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 11))
+                            Text("\(assignmentStats.dueSoon) due soon")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule()
+                                .fill(Color.orange.opacity(0.2))
+                        )
+                    }
+                    
+                    Spacer()
+                }
             }
         }
         .padding(.vertical, 4)

@@ -118,37 +118,158 @@ Canvas Automation Flow is a comprehensive academic assistant that integrates wit
 
 ## Architecture
 
+### System Overview
+
+Canvas Automation Flow follows a **3-tier architecture** with clear separation of concerns:
+
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    iOS App (SwiftUI)                     │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
-│  │Dashboard │  │Assignments│  │   AI    │              │
-│  │  View    │  │   View   │  │Assistant │              │
-│  └──────────┘  └──────────┘  └──────────┘              │
-└──────────────────────┬──────────────────────────────────┘
-                       │ HTTP/REST API
-┌──────────────────────┴──────────────────────────────────┐
-│              Flask Backend API Server                    │
-│  ┌────────────────────────────────────────────────┐    │
-│  │           Service Layer                        │    │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐    │    │
-│  │  │ Canvas   │  │   LLM    │  │Document  │    │    │
-│  │  │ Client   │  │ Service  │  │  Gen     │    │    │
-│  │  └──────────┘  └──────────┘  └──────────┘    │    │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐    │    │
-│  │  │  Quiz    │  │Calendar  │  │  Auth    │    │    │
-│  │  │ Service  │  │ Service  │  │ Service  │    │    │
-│  │  └──────────┘  └──────────┘  └──────────┘    │    │
-│  └────────────────────────────────────────────────┘    │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-        ┌──────────────┼──────────────┐
-        │              │              │
-┌───────▼──────┐ ┌─────▼─────┐ ┌─────▼─────┐
-│  Canvas API  │ │ Groq API  │ │Perplexity │
-│     LMS      │ │  (LLaMA)  │ │    AI     │
-└──────────────┘ └───────────┘ └───────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           PRESENTATION LAYER                            │
+│                        iOS App (SwiftUI + Combine)                      │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐      │
+│  │  Dashboard  │ │ Assignments │ │   Courses   │ │ AI Assistant│      │
+│  │    View     │ │    View     │ │    View     │ │    View     │      │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘      │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐      │
+│  │    Files    │ │  Quiz View  │ │ Course Detail│ │ Settings    │      │
+│  │    View     │ │             │ │    View     │ │   Modal     │      │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘      │
+└─────────────────────────────┬───────────────────────────────────────────┘
+                              │ HTTP/REST API + WebSocket (Future)
+┌─────────────────────────────┴───────────────────────────────────────────┐
+│                        BUSINESS LOGIC LAYER                             │
+│                    Flask Backend API Server                             │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    API ENDPOINTS                                │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────┐ │   │
+│  │  │   Auth      │ │   Courses   │ │ Assignments │ │   AI     │ │   │
+│  │  │  Endpoints  │ │  Endpoints  │ │  Endpoints  │ │ Endpoints│ │   │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └──────────┘ │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────┐ │   │
+│  │  │   Quiz      │ │  Calendar   │ │  Document   │ │   Files  │ │   │
+│  │  │  Endpoints  │ │  Endpoints  │ │  Endpoints  │ │ Endpoints│ │   │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └──────────┘ │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    SERVICE LAYER                                │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────┐ │   │
+│  │  │   Canvas    │ │     LLM     │ │  Document   │ │ Calendar │ │   │
+│  │  │   Client    │ │   Service   │ │ Generation  │ │ Service  │ │   │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └──────────┘ │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────┐ │   │
+│  │  │    Quiz     │ │    Auth     │ │ Assignment  │ │  Format  │ │   │
+│  │  │   Service   │ │   Service   │ │ Completion  │ │ Service  │ │   │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └──────────┘ │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────┬───────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+┌───────▼──────┐    ┌────────▼────────┐    ┌──────▼──────┐
+│  Canvas API  │    │   AI Services   │    │ File System │
+│     LMS      │    │ ┌─────┐ ┌─────┐ │    │   Storage   │
+│              │    │ │Groq │ │Perp │ │    │             │
+│              │    │ │LLaMA│ │lex  │ │    │             │
+│              │    │ └─────┘ └─────┘ │    │             │
+└──────────────┘    └─────────────────┘    └─────────────┘
 ```
+
+### Data Flow Architecture
+
+#### 1. **Authentication Flow**
+```
+iOS App → Flask Auth Service → Canvas OAuth2 → Token Storage → API Access
+```
+
+#### 2. **Assignment Completion Flow**
+```
+User Input → iOS APIService → Flask API → LLM Service → Perplexity Research → 
+Document Generation → Canvas Submission → Response to iOS
+```
+
+#### 3. **Quiz Processing Flow**
+```
+Quiz Access → Canvas API → Quiz Service → Question Processing → 
+AI Analysis → Answer Generation → Submission → Results
+```
+
+#### 4. **Calendar Export Flow**
+```
+Assignment Data → Calendar Service → .ics Generation → File Export → 
+iOS Share Sheet → Calendar App Integration
+```
+
+### Component Architecture
+
+#### **iOS App Layer (SwiftUI)**
+- **APIService.swift**: Centralized API communication with async/await
+- **ContentView.swift**: Main tab navigation with user avatar
+- **DashboardView.swift**: Home screen with user avatar in top-right
+- **AssignmentsView.swift**: Assignment list with search and filtering
+- **CoursesView.swift**: Course browser with search functionality
+- **AIAssistantView.swift**: ChatGPT-like interface with markdown rendering
+- **MarkdownView.swift**: Rich content display with LaTeX and citations
+- **ThemeManager.swift**: Dark/light mode and consistent theming
+
+#### **Backend API Layer (Flask)**
+- **app.py**: Main Flask application with CORS and error handling
+- **Authentication**: OAuth2 flow with Canvas LMS
+- **Rate Limiting**: Built-in protection against API abuse
+- **Error Handling**: Comprehensive error responses and logging
+
+#### **Service Layer (Python)**
+- **Canvas Integration**: `canvas_client.py`, `quiz_service.py`, `file_upload_service.py`
+- **AI Services**: `llm_service.py` with Groq and Perplexity integration
+- **Document Generation**: `document_generation_service.py` for PDF/DOCX/LaTeX
+- **Calendar Integration**: `calendar_service.py` for .ics export
+- **Assignment Completion**: `assignment_completion_service.py` for AI-powered completion
+
+#### **Data Models**
+- **User**: Profile information and authentication state
+- **Course**: Course details, assignments, and metadata
+- **Assignment**: Assignment details, due dates, and submission status
+- **Quiz**: Quiz questions, answers, and timing information
+- **Submission**: Submission data and file attachments
+
+### Security Architecture
+
+#### **Authentication & Authorization**
+- OAuth2 flow with Canvas LMS
+- Encrypted token storage using iOS Keychain
+- JWT-based session management
+- Role-based access control (Student/Instructor)
+
+#### **Data Protection**
+- All API keys stored in environment variables
+- Sensitive data encrypted at rest
+- HTTPS-only communication
+- Input validation and sanitization
+
+#### **Privacy & Compliance**
+- No data stored on external servers
+- Local processing of sensitive information
+- GDPR-compliant data handling
+- Academic integrity safeguards
+
+### Performance Architecture
+
+#### **Caching Strategy**
+- Assignment data cached for 5 minutes
+- Quiz information cached for 5 minutes
+- User profile cached until logout
+- Intelligent cache invalidation
+
+#### **Optimization Techniques**
+- Async/await for non-blocking operations
+- Pagination for large data sets
+- Lazy loading of course content
+- Background sync for offline capability
+
+#### **Rate Limiting**
+- Canvas API: ~3000 requests/hour
+- Groq API: Plan-based limits
+- Perplexity API: Plan-based limits
+- Exponential backoff for failed requests
 
 ## Installation
 
@@ -219,10 +340,10 @@ Server will start at `http://localhost:5000`
 ### iOS App Setup
 
 1. **Open Xcode project**
-```bash
+   ```bash
 cd ios-app/CanvasAutomationFlow
-open CanvasAutomationFlow.xcodeproj
-```
+   open CanvasAutomationFlow.xcodeproj
+   ```
 
 2. **Configure backend URL**
 - Open `APIService.swift`
@@ -230,7 +351,7 @@ open CanvasAutomationFlow.xcodeproj
 - For local development: `http://localhost:5000`
 
 3. **Build and run**
-- Select your target device/simulator
+   - Select your target device/simulator
 - Press `Cmd+R` or click the Run button
 
 ## API Keys Setup
@@ -415,42 +536,244 @@ POST /api/reminders                   - Create reminder
 GET  /api/reminders/upcoming          - Get upcoming reminders
 ```
 
+## Technical Implementation
+
+### iOS App Architecture (SwiftUI)
+
+#### **Core Components**
+```swift
+// APIService.swift - Centralized API Communication
+class APIService: ObservableObject {
+    @Published var user: User?
+    @Published var isAuthenticated = false
+    
+    // Async/await for modern concurrency
+    func getAssignments() async throws -> [Assignment]
+    func completeAssignment() async throws -> AssignmentResponse
+    func getQuizzes() async throws -> [Quiz]
+}
+```
+
+#### **View Architecture**
+```swift
+// ContentView.swift - Main Navigation
+struct ContentView: View {
+    @StateObject private var apiService = APIService()
+    @StateObject private var themeManager = ThemeManager()
+    
+    var body: some View {
+        TabView {
+            DashboardView()      // Home with user avatar
+            CoursesView()        // Course browser
+            AssignmentsView()    // Assignment list
+            FilesView()          // File management
+            AIAssistantView()    // AI features
+        }
+        .overlay(alignment: .topTrailing) {
+            UserAvatarButton()   // Settings access
+        }
+    }
+}
+```
+
+#### **Rich Content Display**
+```swift
+// MarkdownView.swift - ChatGPT-like Interface
+struct MarkdownView: UIViewRepresentable {
+    let content: String
+    
+    func makeUIView(context: Context) -> WKWebView {
+        let webView = WKWebView()
+        webView.configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        return webView
+    }
+    
+    func updateUIView(_ webView: WKWebView, context: Context) {
+        let html = generateHTML(from: content)
+        webView.loadHTMLString(html, baseURL: nil)
+    }
+}
+```
+
+### Backend Architecture (Flask + Python)
+
+#### **API Layer**
+```python
+# app.py - Main Flask Application
+app = Flask(__name__)
+CORS(app)
+
+@app.route('/api/ai/complete-assignment', methods=['POST'])
+@require_auth
+async def complete_assignment():
+    """AI-powered assignment completion with citations"""
+    data = request.get_json()
+    
+    # Process with LLM service
+    result = await llm_service.complete_assignment(
+        assignment_id=data['assignment_id'],
+        use_citations=data.get('use_citations', True),
+        generate_document=data.get('generate_document', False)
+    )
+    
+    return jsonify(result)
+```
+
+#### **Service Layer**
+```python
+# llm_service.py - AI Integration
+class LLMService:
+    def __init__(self):
+        self.groq_client = GroqClient()      # For calculations
+        self.perplexity_client = PerplexityClient()  # For research
+    
+    async def complete_assignment(self, assignment_id: str, **kwargs):
+        # Get assignment context
+        assignment = await self.canvas_client.get_assignment(assignment_id)
+        
+        # Research with Perplexity
+        research = await self.perplexity_client.research(assignment.prompt)
+        
+        # Generate response with Groq
+        response = await self.groq_client.generate_response(
+            prompt=assignment.prompt,
+            context=research,
+            citations=True
+        )
+        
+        return {
+            'content': response.content,
+            'sources': research.sources,
+            'document_path': await self.generate_document(response)
+        }
+```
+
+#### **Canvas Integration**
+```python
+# canvas_client.py - Canvas API Client
+class CanvasAPIClient:
+    def __init__(self, base_url: str, access_token: str):
+        self.base_url = base_url
+        self.headers = {'Authorization': f'Bearer {access_token}'}
+    
+    async def get_assignments(self, course_id: str) -> List[Assignment]:
+        """Fetch assignments with caching"""
+        cache_key = f"assignments_{course_id}"
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+        
+        response = await self._make_request(f'/courses/{course_id}/assignments')
+        assignments = [Assignment.from_dict(a) for a in response]
+        
+        self.cache[cache_key] = assignments
+        return assignments
+```
+
+### Data Flow Implementation
+
+#### **Assignment Completion Flow**
+```mermaid
+sequenceDiagram
+    participant iOS as iOS App
+    participant API as Flask API
+    participant LLM as LLM Service
+    participant Perp as Perplexity
+    participant Groq as Groq API
+    participant Canvas as Canvas LMS
+    
+    iOS->>API: POST /api/ai/complete-assignment
+    API->>LLM: complete_assignment()
+    LLM->>Canvas: get_assignment_details()
+    LLM->>Perp: research_assignment()
+    Perp-->>LLM: research + citations
+    LLM->>Groq: generate_response()
+    Groq-->>LLM: AI response
+    LLM->>LLM: generate_document()
+    LLM-->>API: completion_result
+    API-->>iOS: JSON response
+```
+
+#### **Quiz Processing Flow**
+```mermaid
+sequenceDiagram
+    participant iOS as iOS App
+    participant API as Flask API
+    participant Quiz as Quiz Service
+    participant Canvas as Canvas LMS
+    participant LLM as LLM Service
+    
+    iOS->>API: GET /api/courses/{id}/quizzes
+    API->>Quiz: get_quizzes()
+    Quiz->>Canvas: fetch_quiz_list()
+    Canvas-->>Quiz: quiz_data
+    Quiz-->>API: formatted_quizzes
+    API-->>iOS: quiz_list
+    
+    iOS->>API: POST /api/ai/complete-quiz
+    API->>Quiz: complete_quiz()
+    Quiz->>Canvas: get_quiz_questions()
+    Quiz->>LLM: analyze_questions()
+    LLM-->>Quiz: AI_answers
+    Quiz->>Canvas: submit_quiz()
+    Quiz-->>API: submission_result
+    API-->>iOS: completion_status
+```
+
 ## Project Structure
 
 ```
 canvas-automation-flow/
-├── ios-app/                          # iOS application
+├── ios-app/                          # iOS Application (SwiftUI)
 │   └── CanvasAutomationFlow/
 │       └── CanvasAutomationFlow/
-│           ├── APIService.swift      # Backend communication
-│           ├── MarkdownView.swift    # ChatGPT-like renderer
-│           ├── AssignmentsView.swift # Assignment list
-│           ├── CoursesView.swift     # Course list
-│           ├── AIAssistantView.swift # AI features
-│           └── ...
-├── src/                              # Backend source code
-│   ├── api/                          # Flask API
-│   │   └── app.py                    # Main API server
-│   ├── auth/                         # Authentication
-│   │   └── auth_service.py
-│   ├── canvas/                       # Canvas API integration
-│   │   ├── canvas_client.py          # API client
-│   │   ├── quiz_service.py           # Quiz support (NEW)
-│   │   ├── file_upload_service.py
-│   │   └── assignment_submission_service.py
-│   ├── llm/                          # AI services
-│   │   └── llm_service.py            # Groq + Perplexity
-│   ├── ai/                           # AI features (NEW)
-│   │   └── assignment_completion_service.py
-│   ├── document/                     # Document generation (NEW)
-│   │   └── document_generation_service.py
-│   ├── calendar/                     # Calendar integration
-│   │   └── calendar_service.py
-│   └── models/                       # Data models
-│       └── data_models.py
+│           ├── APIService.swift      # Centralized API communication
+│           ├── ContentView.swift     # Main tab navigation + user avatar
+│           ├── DashboardView.swift   # Home screen with user avatar
+│           ├── AssignmentsView.swift # Assignment list with search
+│           ├── CoursesView.swift     # Course browser with search
+│           ├── AIAssistantView.swift # ChatGPT-like AI interface
+│           ├── MarkdownView.swift    # Rich content renderer
+│           ├── ThemeManager.swift    # Dark/light mode theming
+│           ├── AssignmentDetailView.swift # Assignment details
+│           ├── CourseDetailView.swift # Course-specific views
+│           ├── FilesView.swift       # File management
+│           └── Assets.xcassets/      # App icons and colors
+├── src/                              # Backend Source Code (Python)
+│   ├── api/                          # Flask API Layer
+│   │   ├── app.py                    # Main Flask application
+│   │   └── course_consistency.py     # Course data validation
+│   ├── auth/                         # Authentication Services
+│   │   └── auth_service.py           # OAuth2 with Canvas LMS
+│   ├── canvas/                       # Canvas API Integration
+│   │   ├── canvas_client.py          # Canvas API client
+│   │   ├── quiz_service.py           # Quiz/exam support
+│   │   ├── file_upload_service.py    # File upload handling
+│   │   ├── assignment_submission_service.py # Assignment submission
+│   │   └── study_plan_service.py     # Study plan generation
+│   ├── llm/                          # AI Services
+│   │   ├── llm_service.py            # Groq + Perplexity integration
+│   │   └── prompt_templates.py       # Context-aware prompts
+│   ├── ai/                           # AI-Powered Features
+│   │   └── assignment_completion_service.py # Assignment completion
+│   ├── document/                     # Document Generation
+│   │   └── document_generation_service.py # PDF/DOCX/LaTeX
+│   ├── calendar/                     # Calendar Integration
+│   │   └── calendar_service.py       # .ics export service
+│   ├── formatting/                   # Content Formatting
+│   │   └── formatting_service.py     # Markdown/LaTeX processing
+│   ├── notifications/                # Notification System
+│   │   └── notification_service.py   # Push notifications
+│   ├── sync/                         # Data Synchronization
+│   │   └── sync_service.py           # Canvas data sync
+│   ├── models/                       # Data Models
+│   │   └── data_models.py            # Pydantic models
+│   ├── tests/                        # Test Suite
+│   │   └── test_suite.py             # Comprehensive tests
+│   └── main.py                       # Application entry point
 ├── requirements.txt                  # Python dependencies
-├── .env                              # Environment variables
-└── README.md                         # This file
+├── setup.py                         # Installation script
+├── .env.example                     # Environment variables template
+└── README.md                        # This comprehensive guide
 ```
 
 ## Configuration
