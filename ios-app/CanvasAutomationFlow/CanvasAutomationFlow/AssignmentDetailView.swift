@@ -119,24 +119,20 @@ struct AssignmentDetailView: View {
                     
                     // File upload functionality moved to AI Assignment Help
                     
-                    // Action Buttons - Side by Side
-                    VStack(spacing: 16) {
-                        // AI Help & Submit Files - Side by Side
-                        HStack(spacing: 12) {
-                            FuturisticButton(title: "AI Help & Analysis") {
-                                showingAIHelp = true
+                    // Action Buttons - Consistent full-width layout
+                    VStack(spacing: 12) {
+                        FuturisticButton(title: "AI Help") {
+                            showingAIHelp = true
+                        }
+                        .frame(maxWidth: .infinity)
+                        
+                        if assignment.submissionTypes.contains("online_upload") {
+                            FuturisticButton(title: "Submit Files") {
+                                showingSubmission = true
                             }
                             .frame(maxWidth: .infinity)
-                            
-                            if assignment.submissionTypes.contains("online_upload") {
-                                FuturisticButton(title: "Submit Files") {
-                                    showingSubmission = true
-                                }
-                                .frame(maxWidth: .infinity)
-                            }
                         }
                         
-                        // Submit Text - Full Width (if available)
                         if assignment.submissionTypes.contains("online_text_entry") {
                             FuturisticButton(title: "Submit Text") {
                                 showingTextSubmission = true
@@ -168,6 +164,8 @@ struct AssignmentDetailView: View {
                 isLoading: $isLoadingAI,
                 apiService: apiService
             )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingSubmission) {
             AssignmentSubmissionView(
@@ -175,6 +173,8 @@ struct AssignmentDetailView: View {
                 submissionType: .fileUpload,
                 apiService: apiService
             )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingTextSubmission) {
             AssignmentSubmissionView(
@@ -182,6 +182,8 @@ struct AssignmentDetailView: View {
                 submissionType: .textEntry,
                 apiService: apiService
             )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
     
@@ -373,13 +375,15 @@ struct AssignmentAIHelpView: View {
                             .foregroundColor(themeManager.accentColor)
                         }
                         
-                        ScrollView {
-                            MarkdownView(content: response, sources: nil)
-                                .padding()
+                        ScrollView([.vertical, .horizontal], showsIndicators: true) {
+                            MarkdownView(content: response, sources: nil, backgroundColor: themeManager.surfaceColor)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 12)
+                                .background(themeManager.surfaceColor)
+                                .cornerRadius(8)
+                                .frame(minWidth: 300, minHeight: 300)
                         }
-                        .frame(maxHeight: 300)
-                        .background(themeManager.surfaceColor)
-                        .cornerRadius(8)
+                        .frame(maxHeight: 600)
                     }
                     .padding()
                     .futuristicCard()

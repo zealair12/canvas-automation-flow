@@ -312,14 +312,30 @@ struct StudyPlanSheet: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var themeManager: ThemeManager
     @State private var daysAhead = 7
+    @State private var showingCourseSelection = false
     
     var body: some View {
         NavigationView {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Selected Courses:")
-                        .font(.headline)
-                        .foregroundColor(themeManager.textColor)
+                    HStack {
+                        Text("Selected Courses:")
+                            .font(.headline)
+                            .foregroundColor(themeManager.textColor)
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            showingCourseSelection = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Add Course")
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(themeManager.accentColor)
+                        }
+                    }
                     
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 4) {
@@ -337,6 +353,15 @@ struct StudyPlanSheet: View {
                                     Spacer()
                                 }
                                 .padding(.vertical, 2)
+                            }
+                            
+                            if selectedCourses.isEmpty {
+                                Text("No courses selected")
+                                    .font(.subheadline)
+                                    .foregroundColor(themeManager.secondaryTextColor)
+                                    .italic()
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding()
                             }
                         }
                     }
@@ -390,19 +415,30 @@ struct StudyPlanSheet: View {
                                 .font(.headline)
                                 .foregroundColor(themeManager.textColor)
                             Spacer()
-                            Button("Copy") {
-                                UIPasteboard.general.string = response
+                            HStack(spacing: 12) {
+                                Button("Export Calendar") {
+                                    exportToCalendar()
+                                }
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                                
+                                Button("Copy") {
+                                    UIPasteboard.general.string = response
+                                }
+                                .font(.caption)
+                                .foregroundColor(.green)
                             }
-                            .font(.caption)
-                            .foregroundColor(.green)
                         }
                         
-                        ScrollView {
-                            MathFormattedText(response)
-                                .padding()
+                        ScrollView([.vertical, .horizontal], showsIndicators: true) {
+                            MarkdownView(content: response, sources: nil, backgroundColor: themeManager.surfaceColor)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 12)
                                 .background(themeManager.surfaceColor)
                                 .cornerRadius(8)
+                                .frame(minWidth: 300, minHeight: 300)
                         }
+                        .frame(maxHeight: 600)
                     }
                 }
                 
@@ -421,6 +457,12 @@ struct StudyPlanSheet: View {
             }
         }
         .background(themeManager.backgroundColor)
+        .sheet(isPresented: $showingCourseSelection) {
+            CourseSelectionSheet(
+                selectedCourses: $selectedCourses,
+                availableCourses: apiService.courses
+            )
+        }
     }
     
     private func generateStudyPlan() async {
@@ -433,6 +475,191 @@ struct StudyPlanSheet: View {
         response = plan ?? "Sorry, I couldn't generate a study plan. Please try again."
         
         isLoading = false
+    }
+    
+    private func exportToCalendar() {
+        // Generate .ics file content
+        let icsContent = generateICSContent()
+        
+        // Create a temporary file
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let fileName = "StudyPlan_\(Date().timeIntervalSince1970).ics"
+        let fileURL = documentsPath.appendingPathComponent(fileName)
+        
+        do {
+            try icsContent.write(to: fileURL, atomically: true, encoding: .utf8)
+            
+            // Present share sheet
+            let activityVC = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first {
+                window.rootViewController?.present(activityVC, animated: true)
+            }
+        } catch {
+            print("Error creating calendar file: \(error)")
+        }
+    }
+    
+    private func generateICSContent() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+        formatter.timeZone = TimeZone(abbreviation: "UTC")
+        
+        var icsContent = """
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Canvas Automation Flow//Study Plan//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+"""
+        
+        // Add study plan events based on assignments
+        for course in selectedCourses {
+            // Get assignments for this course (this would be enhanced with real API data)
+            let assignments = getAssignmentsForCourse(course)
+            
+            for assignment in assignments {
+                if let dueDateString = assignment.dueAt,
+                   let dueDate = parseDate(from: dueDateString) {
+                    let startDate = Calendar.current.date(byAdding: .day, value: -1, to: dueDate) ?? dueDate
+                    
+                    icsContent += """
+BEGIN:VEVENT
+UID:\(UUID().uuidString)@canvasautomation.com
+DTSTART:\(formatter.string(from: startDate))
+DTEND:\(formatter.string(from: dueDate))
+SUMMARY:Study for \(assignment.name)
+DESCRIPTION:Assignment: \(assignment.name)\\nCourse: \(course.name)\\nDue: \(dueDate.formatted())
+LOCATION:\(course.name)
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+"""
+                }
+            }
+        }
+        
+        icsContent += """
+END:VCALENDAR
+"""
+        
+        return icsContent
+    }
+    
+    private func getAssignmentsForCourse(_ course: Course) -> [Assignment] {
+        // This would be enhanced to fetch real assignment data from the API
+        // For now, return sample data
+        return apiService.assignments.filter { $0.courseId == course.canvasCourseId }
+    }
+    
+    private func parseDate(from dateString: String) -> Date? {
+        let formatters = [
+            // ISO 8601 format (most common from Canvas API)
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+            "yyyy-MM-dd'T'HH:mm:ssZ",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
+            // Alternative formats
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd"
+        ]
+        
+        for format in formatters {
+            let formatter = DateFormatter()
+            formatter.dateFormat = format
+            formatter.timeZone = TimeZone(abbreviation: "UTC")
+            
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+        }
+        
+        return nil
+    }
+}
+
+struct CourseSelectionSheet: View {
+    @Binding var selectedCourses: Set<Course>
+    let availableCourses: [Course]
+    @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var themeManager: ThemeManager
+    
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Select Courses for Study Plan")
+                    .font(.headline)
+                    .foregroundColor(themeManager.textColor)
+                    .padding(.horizontal)
+                
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(availableCourses) { course in
+                            CourseSelectionRow(
+                                course: course,
+                                isSelected: selectedCourses.contains(course),
+                                onToggle: { isSelected in
+                                    if isSelected {
+                                        selectedCourses.insert(course)
+                                    } else {
+                                        selectedCourses.remove(course)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                
+                Spacer()
+            }
+            .background(themeManager.backgroundColor)
+            .navigationTitle("Select Courses")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundColor(themeManager.accentColor)
+                }
+            }
+        }
+    }
+}
+
+struct CourseSelectionRow: View {
+    let course: Course
+    let isSelected: Bool
+    let onToggle: (Bool) -> Void
+    @EnvironmentObject var themeManager: ThemeManager
+    
+    var body: some View {
+        HStack {
+            Button(action: {
+                onToggle(!isSelected)
+            }) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isSelected ? themeManager.accentColor : themeManager.secondaryTextColor)
+                    .font(.title2)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(course.name)
+                    .font(.subheadline)
+                    .foregroundColor(themeManager.textColor)
+                    .lineLimit(2)
+                
+                Text(course.courseCode)
+                    .font(.caption)
+                    .foregroundColor(themeManager.secondaryTextColor)
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .background(themeManager.surfaceColor)
+        .cornerRadius(8)
     }
 }
 

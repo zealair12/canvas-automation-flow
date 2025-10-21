@@ -1208,6 +1208,19 @@ def get_assignment_help():
                 {"role": "user", "content": prompt}
             ]
             response = llm_service.adapter._make_request(messages, temperature=0.5, max_tokens=1500)
+            
+            # Format Groq response to match Perplexity structure
+            from src.formatting.formatting_service import formatting_service, FormattingOptions
+            formatted_content = formatting_service.format_ai_response(
+                response.content,
+                options=FormattingOptions(
+                    include_tables=True,
+                    include_math=True,
+                    include_sources=False,
+                    table_style="markdown"
+                )
+            )
+            response.content = formatted_content
 
         return jsonify({
             'assignment': assignment.to_dict(),
@@ -1342,6 +1355,19 @@ def explain_concept():
                 {"role": "user", "content": prompt}
             ]
             response = llm_service.adapter._make_request(messages, temperature=0.3, max_tokens=1200)
+            
+            # Format Groq response to match Perplexity structure
+            from src.formatting.formatting_service import formatting_service, FormattingOptions
+            formatted_content = formatting_service.format_ai_response(
+                response.content,
+                options=FormattingOptions(
+                    include_tables=True,
+                    include_math=True,
+                    include_sources=False,
+                    table_style="markdown"
+                )
+            )
+            response.content = formatted_content
         
         return jsonify({
             'concept': concept,

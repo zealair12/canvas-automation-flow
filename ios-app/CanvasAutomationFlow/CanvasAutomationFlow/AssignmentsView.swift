@@ -9,6 +9,7 @@ import SwiftUI
 
 struct AssignmentsView: View {
     @EnvironmentObject var apiService: APIService
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var selectedFilter: AssignmentFilter = .all
     @State private var showingAIHelp = false
     @State private var selectedAssignmentForAI: Assignment?
@@ -86,6 +87,8 @@ struct AssignmentsView: View {
                     isLoading: $isLoadingAI,
                     apiService: apiService
                 )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
             }
         }
     }
@@ -311,6 +314,7 @@ struct AIHelpSheet: View {
     @Binding var isLoading: Bool
     let apiService: APIService
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
         NavigationView {
@@ -373,12 +377,15 @@ struct AIHelpSheet: View {
                             .foregroundColor(.purple)
                         }
                         
-                        ScrollView {
-                            MarkdownView(content: response, sources: nil)
-                                .padding()
-                                .background(Color(.systemGray6))
+                        ScrollView([.vertical, .horizontal], showsIndicators: true) {
+                            MarkdownView(content: response, sources: nil, backgroundColor: themeManager.surfaceColor)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 12)
+                                .background(themeManager.surfaceColor)
                                 .cornerRadius(8)
+                                .frame(minWidth: 300, minHeight: 300)
                         }
+                        .frame(maxHeight: 600)
                     }
                 }
                 
@@ -412,10 +419,12 @@ struct AIHelpSheet: View {
         print("🔍 Getting AI help for assignment: \(assignment.canvasAssignmentId) in course: \(assignment.courseId)")
         print("📝 Question: \(question)")
         
-        let helpResult = await apiService.getAssignmentHelp(
+        // Use unified endpoint with optional files (none here) for consistency
+        let helpResult = await apiService.getAssignmentHelpWithFiles(
             assignmentId: assignment.canvasAssignmentId,
             courseId: assignment.courseId,
             question: question,
+            files: [],
             helpType: "guidance"  // Quick help from swipe action
         )
         

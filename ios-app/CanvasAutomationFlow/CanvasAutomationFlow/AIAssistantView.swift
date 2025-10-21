@@ -303,10 +303,15 @@ struct AIAssistantView: View {
             }
             
             // Use MarkdownView for rich formatting with citations
-            MarkdownView(content: aiResponse, sources: nil)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(10)
+            ScrollView([.vertical, .horizontal], showsIndicators: true) {
+                MarkdownView(content: aiResponse, sources: nil, backgroundColor: Color(.systemGray6))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                    .frame(minWidth: 300, minHeight: 300)
+            }
+            .frame(maxHeight: 600)
         }
     }
     
