@@ -538,6 +538,26 @@ GET  /api/reminders/upcoming          - Get upcoming reminders
 
 ## Technical Implementation
 
+### Resolving MathJax Rendering Issues
+
+One major challenge in the project involved correctly rendering LaTeX equations inside a SwiftUI WebView using Markdown and MathJax. The core issue stemmed from **escape character conflicts** and **improper preservation of LaTeX delimiters** (`\(`, `\[`, `$...$`, `$$...$$`) during the Markdown-to-HTML conversion process.
+
+To solve this, a **multi-stage debugging and processing pipeline** was implemented:
+
+1. **LaTeX Protection Phase:**
+   Before Markdown conversion, all math expressions were temporarily replaced with unique placeholder tokens. This prevented the Markdown parser from misinterpreting or escaping LaTeX syntax.
+
+2. **Markdown Conversion & Restoration:**
+   After conversion, the placeholders were restored to their original LaTeX forms. This ensured the HTML preserved valid MathJax-ready expressions.
+
+3. **Dynamic MathJax Loading:**
+   MathJax was then dynamically loaded in the WebView using JavaScript, with explicit logging to confirm script loading, DOM readiness, and successful `typesetPromise` execution.
+
+4. **Comprehensive Debugging System:**
+   Step-by-step debug outputs were added at every stage (raw input, post-protection, post-restoration, and WebView DOM inspection) to identify where the LaTeX might fail. This made it easy to locate and fix issues related to double-escaping, code-block interference, or missing MathJax scripts.
+
+This systematic approach turned a difficult rendering problem into a reproducible, well-understood process and ensured consistent LaTeX rendering across all content.
+
 ### iOS App Architecture (SwiftUI)
 
 #### **Core Components**
