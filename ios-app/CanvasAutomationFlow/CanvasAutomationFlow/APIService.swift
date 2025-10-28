@@ -3,7 +3,7 @@ import Combine
 
 @MainActor
 class APIService: ObservableObject {
-    private let baseURL = "http://localhost:5000"
+    private let baseURL = "https://web-production-7dc29.up.railway.app"
     private var authToken: String?
     
     @Published var isAuthenticated = false
